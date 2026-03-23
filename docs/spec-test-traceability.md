@@ -1,0 +1,62 @@
+# SPEC Test Traceability (current Zig coverage)
+
+This file maps implemented `gowe/SPEC.md` behaviors to Zig tests in `gowe-zig/tests/main.zig`.
+
+## 5. Dynamic Profile
+
+| SPEC section    | Requirement (short)                             | Tests                                                                                   |
+| --------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 5.2 key table   | First key literal, later key ref by id          | `two-field map keeps map and uses key ids`                                              |
+| 5.3 shape table | Promote repeated map shape to shaped object     | `shape promotes after second three-field map`, `register shape with key ids roundtrips` |
+| 5.4 MAP         | Map decode path, unknown key id policy behavior | `unknown key reference honors policies`                                                 |
+| 5.5 ARRAY       | Array vs typed-vector threshold behavior        | `typed vector threshold is applied`                                                     |
+
+## 6. Bound Profile
+
+| SPEC section  | Requirement (short)                                       | Tests                                                                                       |
+| ------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 6.1 schema    | Required field validation                                 | `schema id is sent first then omitted`, `encode with schema rejects missing required field` |
+| 6.2 schema_id | First schema object includes id, subsequent message omits | `schema id is sent first then omitted`                                                      |
+
+## 8. Numeric Encoding
+
+| SPEC section              | Requirement (short)                              | Tests                                                                                                            |
+| ------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| 8.4 vector integer codecs | Simple8b roundtrip and malformed decode handling | `vector codecs roundtrip smoke`, `vector codec simple8b u64 edge cases`, `vector codec rejects malformed inputs` |
+| 8.5 float vector codecs   | XOR float roundtrip behavior                     | `vector codecs roundtrip smoke`                                                                                  |
+
+## 10. Strings
+
+| SPEC section      | Requirement (short)                        | Tests                                                                                      |
+| ----------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| 10.2 LITERAL      | Literal mode used on first string emission | `string modes empty ref and prefix delta are used`, `reset tables clears string interning` |
+| 10.3 REF          | Repeated string emits reference mode       | `string modes empty ref and prefix delta are used`, `reset tables clears string interning` |
+| 10.4 PREFIX_DELTA | Prefix-delta selected when profitable      | `string modes empty ref and prefix delta are used`                                         |
+| 10.5 string table | ResetTables clears string intern state     | `reset tables clears string interning`                                                     |
+
+## 13. Batch / Stateful Extensions
+
+| SPEC section               | Requirement (short)                                      | Tests                                                                                                                                                |
+| -------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 13.1 ROW_BATCH             | Small batch uses row batch                               | `batch threshold selects row vs column`                                                                                                              |
+| 13.2 COLUMN_BATCH          | Large batch uses column batch                            | `batch threshold selects row vs column`                                                                                                              |
+| 13.5.1 session state       | Unknown reference policy branch behavior                 | `unknown key reference honors policies`, `unknown base id honors stateless retry policy`                                                            |
+| 13.5.2 BASE_SNAPSHOT       | Base snapshot message roundtrip and registration         | `base snapshot roundtrips and registers by id`                                                                                                       |
+| 13.5.3 STATE_PATCH         | Patch message decode and map insert/delete reconstruction | `state patch uses recommended ratio threshold`, `state patch map insert and delete reconstructs previous message`                                   |
+| 13.5.5 TEMPLATE_BATCH      | Micro-batch template reuse and changed-column mask       | `micro batch reuses template and emits changed mask`                                                                                                 |
+| 13.5.6 CONTROL_STREAM      | Control stream codec roundtrip and framing behavior      | `control stream roundtrips for all declared codecs`, `control stream bitpack compacts repetitive payloads`, `control stream fse falls back to plain frame mode` |
+| 13.5.8 RESET_STATE         | Reset clears shape resolution                            | `reset state clears shape resolution`                                                                                                                |
+
+## 18. Encoder Auto-Selection Rules
+
+| Rule cluster            | Requirement (short)                        | Tests                                                                                     |
+| ----------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Dynamic map/shape rules | Repeat-map promotion and key-id reuse      | `shape promotes after second three-field map`, `two-field map keeps map and uses key ids` |
+| Typed vector rules      | Minimum length threshold for typed vectors | `typed vector threshold is applied`                                                       |
+| String mode rules       | Empty/literal/ref/prefix-delta transitions | `string modes empty ref and prefix delta are used`                                        |
+| Batch selection rules   | Row vs column threshold                    | `batch threshold selects row vs column`                                                   |
+
+## Current gaps (explicit)
+
+- Trained dictionary transport coverage (SPEC section 15) is pending.
+- Stateful parity still needs deeper edge-path coverage for `StatePatch`/`TemplateBatch` beyond the currently ported core scenarios.
