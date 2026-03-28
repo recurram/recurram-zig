@@ -1,6 +1,6 @@
-# Gowe (Zig)
+# Recurram (Zig)
 
-Zig implementation of the Gowe wire format and session-aware encoder/decoder.
+Zig implementation of the Recurram wire format and session-aware encoder/decoder.
 
 ## What this package provides
 
@@ -18,25 +18,25 @@ Zig implementation of the Gowe wire format and session-aware encoder/decoder.
 
 ```zig
 const std = @import("std");
-const gowe = @import("gowe");
+const recurram = @import("recurram");
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
-    var entries = try allocator.alloc(gowe.model.ValueMapEntry, 2);
+    var entries = try allocator.alloc(recurram.model.ValueMapEntry, 2);
     entries[0] = .{ .key = try allocator.dupe(u8, "id"), .value = .{ .U64 = 1001 } };
     entries[1] = .{ .key = try allocator.dupe(u8, "name"), .value = .{ .String = try allocator.dupe(u8, "alice") } };
 
-    var value = gowe.Value{ .Map = entries };
+    var value = recurram.Value{ .Map = entries };
     defer value.deinit(allocator);
 
-    const bytes = try gowe.encode(allocator, &value);
+    const bytes = try recurram.encode(allocator, &value);
     defer allocator.free(bytes);
 
-    var decoded = try gowe.decode(allocator, bytes);
+    var decoded = try recurram.decode(allocator, bytes);
     defer decoded.deinit(allocator);
 
-    std.debug.assert(gowe.Value.eql(decoded, value));
+    std.debug.assert(recurram.Value.eql(decoded, value));
 }
 ```
 
@@ -67,7 +67,7 @@ Run both directions:
 bash scripts/check-interop.sh
 ```
 
-Note: these scripts expect `../gowe-rust` to exist as a sibling directory.
+Note: these scripts expect `../recurram-rust` to exist as a sibling directory.
 
 ## CI and release (GitHub Actions)
 

@@ -20,7 +20,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    integration_module.addImport("gowe", lib_module);
+    integration_module.addImport("recurram", lib_module);
 
     const integration_tests = b.addTest(.{
         .root_module = integration_module,

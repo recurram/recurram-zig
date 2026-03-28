@@ -1,5 +1,5 @@
 const std = @import("std");
-const gowe = @import("gowe");
+const recurram = @import("recurram");
 
 const Allocator = std.mem.Allocator;
 
@@ -12,10 +12,10 @@ pub fn main() !void {
     var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
     const stdout = &stdout_writer.interface;
 
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
-    var alpha = gowe.Value{ .String = try allocator.dupe(u8, "alpha") };
+    var alpha = recurram.Value{ .String = try allocator.dupe(u8, "alpha") };
     defer alpha.deinit(allocator);
     try emitEncodedValue(stdout, allocator, "codec", "scalar_string", &codec, &alpha);
 
@@ -45,9 +45,9 @@ pub fn main() !void {
     try emitControlStream(stdout, allocator, &codec, "control_stream_huffman", .Huffman, &control_payload);
     try emitControlStream(stdout, allocator, &codec, "control_stream_fse", .Fse, &control_payload);
 
-    const payload = try allocator.create(gowe.Message);
+    const payload = try allocator.create(recurram.Message);
     payload.* = .{ .Scalar = .{ .I64 = 42 } };
-    var base_snapshot = gowe.Message{ .BaseSnapshot = .{
+    var base_snapshot = recurram.Message{ .BaseSnapshot = .{
         .base_id = 77,
         .schema_or_shape_ref = 0,
         .payload = payload,
@@ -55,12 +55,12 @@ pub fn main() !void {
     defer base_snapshot.deinit(allocator);
     try emitEncodedMessage(stdout, allocator, "codec", "base_snapshot", &codec, &base_snapshot);
 
-    var enc = gowe.SessionEncoder.init(allocator, .{});
+    var enc = recurram.SessionEncoder.init(allocator, .{});
     defer enc.deinit();
 
     const base_values = try makeI64Array(allocator, 100, 0);
     defer freeValues(base_values, allocator);
-    var base_array = gowe.Value{ .Array = base_values };
+    var base_array = recurram.Value{ .Array = base_values };
     const base_bytes = try enc.encode(&base_array);
     defer allocator.free(base_bytes);
     try emitFrame(stdout, "session", "session_base_array", base_bytes);
@@ -69,7 +69,7 @@ pub fn main() !void {
     defer freeValues(one_change_values, allocator);
     one_change_values[0].deinit(allocator);
     one_change_values[0] = .{ .I64 = 10_000 };
-    var one_change = gowe.Value{ .Array = one_change_values };
+    var one_change = recurram.Value{ .Array = one_change_values };
     const one_patch = try enc.encodePatch(&one_change);
     defer allocator.free(one_patch);
     try emitFrame(stdout, "session", "session_patch_one_change", one_patch);
@@ -80,7 +80,7 @@ pub fn main() !void {
         defer freeValues(iterative_values, allocator);
         iterative_values[patch_step].deinit(allocator);
         iterative_values[patch_step] = .{ .I64 = @intCast(20_000 + patch_step) };
-        var iterative = gowe.Value{ .Array = iterative_values };
+        var iterative = recurram.Value{ .Array = iterative_values };
         const bytes = try enc.encodePatch(&iterative);
         defer allocator.free(bytes);
         const label = try std.fmt.allocPrint(allocator, "session_patch_iter_{d}", .{patch_step});
@@ -94,7 +94,7 @@ pub fn main() !void {
         slot.deinit(allocator);
         slot.* = .{ .I64 = @intCast(10_000 + idx) };
     }
-    var many_change = gowe.Value{ .Array = many_change_values };
+    var many_change = recurram.Value{ .Array = many_change_values };
     const many_patch = try enc.encodePatch(&many_change);
     defer allocator.free(many_patch);
     try emitFrame(stdout, "session", "session_patch_many_changes", many_patch);
@@ -114,20 +114,20 @@ pub fn main() !void {
     try stdout.flush();
 }
 
-fn emitEncodedValue(writer: anytype, allocator: Allocator, stream: []const u8, label: []const u8, codec: *gowe.GoweCodec, value: *const gowe.Value) !void {
+fn emitEncodedValue(writer: anytype, allocator: Allocator, stream: []const u8, label: []const u8, codec: *recurram.RecurramCodec, value: *const recurram.Value) !void {
     const bytes = try codec.encodeValue(value);
     defer allocator.free(bytes);
     try emitFrame(writer, stream, label, bytes);
 }
 
-fn emitEncodedMessage(writer: anytype, allocator: Allocator, stream: []const u8, label: []const u8, codec: *gowe.GoweCodec, message: *const gowe.Message) !void {
+fn emitEncodedMessage(writer: anytype, allocator: Allocator, stream: []const u8, label: []const u8, codec: *recurram.RecurramCodec, message: *const recurram.Message) !void {
     const bytes = try codec.encodeMessage(message);
     defer allocator.free(bytes);
     try emitFrame(writer, stream, label, bytes);
 }
 
-fn emitControlStream(writer: anytype, allocator: Allocator, codec: *gowe.GoweCodec, label: []const u8, stream_codec: gowe.model.ControlStreamCodec, payload: []const u8) !void {
-    var msg = gowe.Message{ .ControlStream = .{ .codec = stream_codec, .payload = try allocator.dupe(u8, payload) } };
+fn emitControlStream(writer: anytype, allocator: Allocator, codec: *recurram.RecurramCodec, label: []const u8, stream_codec: recurram.model.ControlStreamCodec, payload: []const u8) !void {
+    var msg = recurram.Message{ .ControlStream = .{ .codec = stream_codec, .payload = try allocator.dupe(u8, payload) } };
     defer msg.deinit(allocator);
     try emitEncodedMessage(writer, allocator, "codec", label, codec, &msg);
 }
@@ -140,33 +140,33 @@ fn emitFrame(writer: anytype, stream: []const u8, label: []const u8, bytes: []co
     try writer.writeByte('\n');
 }
 
-fn idNameMapValue(allocator: Allocator, id: u64, name: []const u8) !gowe.Value {
-    const entries = try allocator.alloc(gowe.model.ValueMapEntry, 2);
+fn idNameMapValue(allocator: Allocator, id: u64, name: []const u8) !recurram.Value {
+    const entries = try allocator.alloc(recurram.model.ValueMapEntry, 2);
     entries[0] = .{ .key = try allocator.dupe(u8, "id"), .value = .{ .U64 = id } };
     entries[1] = .{ .key = try allocator.dupe(u8, "name"), .value = .{ .String = try allocator.dupe(u8, name) } };
     return .{ .Map = entries };
 }
 
-fn idNameRoleMapValue(allocator: Allocator, id: u64, name: []const u8, role: []const u8) !gowe.Value {
-    const entries = try allocator.alloc(gowe.model.ValueMapEntry, 3);
+fn idNameRoleMapValue(allocator: Allocator, id: u64, name: []const u8, role: []const u8) !recurram.Value {
+    const entries = try allocator.alloc(recurram.model.ValueMapEntry, 3);
     entries[0] = .{ .key = try allocator.dupe(u8, "id"), .value = .{ .U64 = id } };
     entries[1] = .{ .key = try allocator.dupe(u8, "name"), .value = .{ .String = try allocator.dupe(u8, name) } };
     entries[2] = .{ .key = try allocator.dupe(u8, "role"), .value = .{ .String = try allocator.dupe(u8, role) } };
     return .{ .Map = entries };
 }
 
-fn makeI64Array(allocator: Allocator, len: usize, start: i64) ![]gowe.Value {
-    const out = try allocator.alloc(gowe.Value, len);
+fn makeI64Array(allocator: Allocator, len: usize, start: i64) ![]recurram.Value {
+    const out = try allocator.alloc(recurram.Value, len);
     for (out, 0..) |*slot, idx| {
         slot.* = .{ .I64 = start + @as(i64, @intCast(idx)) };
     }
     return out;
 }
 
-fn makeUserRows(allocator: Allocator, names: []const []const u8) ![]gowe.Value {
-    const rows = try allocator.alloc(gowe.Value, names.len);
+fn makeUserRows(allocator: Allocator, names: []const []const u8) ![]recurram.Value {
+    const rows = try allocator.alloc(recurram.Value, names.len);
     for (names, 0..) |name, idx| {
-        const entries = try allocator.alloc(gowe.model.ValueMapEntry, 2);
+        const entries = try allocator.alloc(recurram.model.ValueMapEntry, 2);
         entries[0] = .{ .key = try allocator.dupe(u8, "id"), .value = .{ .U64 = @intCast(idx + 1) } };
         entries[1] = .{ .key = try allocator.dupe(u8, "name"), .value = .{ .String = try allocator.dupe(u8, name) } };
         rows[idx] = .{ .Map = entries };
@@ -174,7 +174,7 @@ fn makeUserRows(allocator: Allocator, names: []const []const u8) ![]gowe.Value {
     return rows;
 }
 
-fn freeValues(values: []gowe.Value, allocator: Allocator) void {
+fn freeValues(values: []recurram.Value, allocator: Allocator) void {
     for (values) |*value| {
         value.deinit(allocator);
     }

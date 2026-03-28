@@ -1,4 +1,4 @@
-pub const GoweError = error{
+pub const RecurramError = error{
     UnexpectedEof,
     InvalidKind,
     InvalidTag,
@@ -9,4 +9,4 @@ pub const GoweError = error{
     UnsupportedKind,
 };
 
-pub const Result = GoweError;
+pub const Result = RecurramError;

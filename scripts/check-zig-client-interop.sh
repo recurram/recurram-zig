@@ -11,6 +11,6 @@ echo "[interop] Emitting Rust server frames..."
 cargo run --quiet --manifest-path "${ROOT_DIR}/scripts/rust-server-fixtures/Cargo.toml" > "${FIXTURES_FILE}"
 
 echo "[interop] Decoding frames with Zig client..."
-zig run --dep gowe -Mroot="${ROOT_DIR}/scripts/decode-rust-server-fixtures.zig" -Mgowe="${ROOT_DIR}/src/lib.zig" < "${FIXTURES_FILE}"
+zig run --dep recurram -Mroot="${ROOT_DIR}/scripts/decode-rust-server-fixtures.zig" -Mrecurram="${ROOT_DIR}/src/lib.zig" < "${FIXTURES_FILE}"
 
 echo "[interop] OK: Rust server -> Zig client smoke test passed"

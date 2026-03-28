@@ -1,5 +1,5 @@
 const std = @import("std");
-const GoweError = @import("error.zig").GoweError;
+const RecurramError = @import("error.zig").RecurramError;
 
 pub fn encodeVaruint(value: u64, out: *std.array_list.Managed(u8)) !void {
     var v = value;
@@ -68,34 +68,34 @@ pub const Reader = struct {
         return self.offset >= self.input.len;
     }
 
-    pub fn readU8(self: *Reader) GoweError!u8 {
+    pub fn readU8(self: *Reader) RecurramError!u8 {
         if (self.offset >= self.input.len) {
-            return GoweError.UnexpectedEof;
+            return RecurramError.UnexpectedEof;
         }
         const byte = self.input[self.offset];
         self.offset += 1;
         return byte;
     }
 
-    pub fn readExact(self: *Reader, len: usize) GoweError![]const u8 {
+    pub fn readExact(self: *Reader, len: usize) RecurramError![]const u8 {
         const end = self.offset +| len;
         if (end < self.offset) {
-            return GoweError.InvalidData;
+            return RecurramError.InvalidData;
         }
         if (end > self.input.len) {
-            return GoweError.UnexpectedEof;
+            return RecurramError.UnexpectedEof;
         }
         const slice = self.input[self.offset..end];
         self.offset = end;
         return slice;
     }
 
-    pub fn readVaruint(self: *Reader) GoweError!u64 {
+    pub fn readVaruint(self: *Reader) RecurramError!u64 {
         var shift: u6 = 0;
         var result: u64 = 0;
         while (true) {
             if (shift >= 64) {
-                return GoweError.InvalidData;
+                return RecurramError.InvalidData;
             }
             const byte = try self.readU8();
             result |= (@as(u64, byte & 0x7f) << shift);
@@ -106,14 +106,14 @@ pub const Reader = struct {
         }
     }
 
-    pub fn readI64Zigzag(self: *Reader) GoweError!i64 {
+    pub fn readI64Zigzag(self: *Reader) RecurramError!i64 {
         const encoded = try self.readVaruint();
         return decodeZigzag(encoded);
     }
 
     pub fn readBytes(self: *Reader, allocator: std.mem.Allocator) ![]u8 {
         const len = try self.readVaruint();
-        const usize_len = std.math.cast(usize, len) orelse return GoweError.InvalidData;
+        const usize_len = std.math.cast(usize, len) orelse return RecurramError.InvalidData;
         const raw = try self.readExact(usize_len);
         return try allocator.dupe(u8, raw);
     }
@@ -122,14 +122,14 @@ pub const Reader = struct {
         const bytes = try self.readBytes(allocator);
         if (!std.unicode.utf8ValidateSlice(bytes)) {
             allocator.free(bytes);
-            return GoweError.Utf8Error;
+            return RecurramError.Utf8Error;
         }
         return bytes;
     }
 
     pub fn readBitmap(self: *Reader, allocator: std.mem.Allocator) ![]bool {
         const bit_count_u64 = try self.readVaruint();
-        const bit_count = std.math.cast(usize, bit_count_u64) orelse return GoweError.InvalidData;
+        const bit_count = std.math.cast(usize, bit_count_u64) orelse return RecurramError.InvalidData;
         const byte_count = std.math.divCeil(usize, bit_count, 8) catch unreachable;
         const bytes = try self.readExact(byte_count);
         const bits = try allocator.alloc(bool, bit_count);

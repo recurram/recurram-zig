@@ -7,23 +7,23 @@ pub const wire = @import("wire.zig");
 
 const std = @import("std");
 
-pub const GoweError = errors.GoweError;
+pub const RecurramError = errors.RecurramError;
 pub const Value = model.Value;
 pub const Schema = model.Schema;
 pub const Message = model.Message;
-pub const GoweCodec = protocol.GoweCodec;
+pub const RecurramCodec = protocol.RecurramCodec;
 pub const SessionEncoder = protocol.SessionEncoder;
 pub const SessionOptions = session.SessionOptions;
 pub const UnknownReferencePolicy = session.UnknownReferencePolicy;
 
 pub fn encode(allocator: std.mem.Allocator, value: *const Value) ![]u8 {
-    var c = GoweCodec.init(allocator, .{});
+    var c = RecurramCodec.init(allocator, .{});
     defer c.deinit();
     return c.encodeValue(value);
 }
 
 pub fn decode(allocator: std.mem.Allocator, bytes: []const u8) !Value {
-    var c = GoweCodec.init(allocator, .{});
+    var c = RecurramCodec.init(allocator, .{});
     defer c.deinit();
     return c.decodeValue(bytes);
 }
@@ -52,7 +52,7 @@ test "roundtrip dynamic value" {
     var value = Value{ .Map = map_entries };
     defer value.deinit(allocator);
 
-    var codec_impl = GoweCodec.init(allocator, .{});
+    var codec_impl = RecurramCodec.init(allocator, .{});
     defer codec_impl.deinit();
 
     const encoded = try codec_impl.encodeValue(&value);

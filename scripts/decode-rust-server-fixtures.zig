@@ -1,5 +1,5 @@
 const std = @import("std");
-const gowe = @import("gowe");
+const recurram = @import("recurram");
 
 const Allocator = std.mem.Allocator;
 
@@ -11,9 +11,9 @@ pub fn main() !void {
     const input = try std.fs.File.stdin().readToEndAlloc(allocator, 32 * 1024 * 1024);
     defer allocator.free(input);
 
-    var codec_stream = gowe.GoweCodec.init(allocator, .{});
+    var codec_stream = recurram.RecurramCodec.init(allocator, .{});
     defer codec_stream.deinit();
-    var session_stream = gowe.GoweCodec.init(allocator, .{});
+    var session_stream = recurram.RecurramCodec.init(allocator, .{});
     defer session_stream.deinit();
 
     var decoded_count: usize = 0;
@@ -26,7 +26,7 @@ pub fn main() !void {
         const bytes = try decodeHex(allocator, parsed.hex);
         defer allocator.free(bytes);
 
-        const decoder: *gowe.GoweCodec = if (std.mem.eql(u8, parsed.stream, "codec"))
+        const decoder: *recurram.RecurramCodec = if (std.mem.eql(u8, parsed.stream, "codec"))
             &codec_stream
         else if (std.mem.eql(u8, parsed.stream, "session"))
             &session_stream

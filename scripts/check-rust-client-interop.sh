@@ -8,7 +8,7 @@ FIXTURES_FILE="$(mktemp)"
 trap 'rm -f "${FIXTURES_FILE}"' EXIT
 
 echo "[interop] Emitting Zig server frames..."
-zig run --dep gowe -Mroot="${ROOT_DIR}/scripts/emit-rust-client-fixtures.zig" -Mgowe="${ROOT_DIR}/src/lib.zig" > "${FIXTURES_FILE}"
+zig run --dep recurram -Mroot="${ROOT_DIR}/scripts/emit-rust-client-fixtures.zig" -Mrecurram="${ROOT_DIR}/src/lib.zig" > "${FIXTURES_FILE}"
 
 echo "[interop] Decoding frames with Rust client..."
 cargo run --quiet --manifest-path "${ROOT_DIR}/scripts/rust-client-check/Cargo.toml" < "${FIXTURES_FILE}"

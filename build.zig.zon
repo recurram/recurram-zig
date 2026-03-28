@@ -1,5 +1,5 @@
 .{
-    .name = .gowe,
+    .name = .recurram,
     .version = "0.1.0",
     .fingerprint = 0x9998e65d6096ab97,
     .minimum_zig_version = "0.15.0",

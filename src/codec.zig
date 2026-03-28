@@ -1,5 +1,5 @@
 const std = @import("std");
-const GoweError = @import("error.zig").GoweError;
+const RecurramError = @import("error.zig").RecurramError;
 const model = @import("model.zig");
 const wire = @import("wire.zig");
 
@@ -127,7 +127,7 @@ pub fn decodeU64Vector(reader: *Reader, codec: VectorCodec, allocator: Allocator
             const shifted = try decodeU64DirectBitpack(reader, allocator);
             errdefer allocator.free(shifted);
             for (shifted) |*value| {
-                value.* = std.math.add(u64, value.*, min) catch return GoweError.InvalidData;
+                value.* = std.math.add(u64, value.*, min) catch return RecurramError.InvalidData;
             }
             break :blk shifted;
         },
@@ -153,7 +153,7 @@ pub fn decodeF64Vector(reader: *Reader, codec: VectorCodec, allocator: Allocator
         return decodeXorFloat(reader, allocator);
     }
     const len_u64 = try reader.readVaruint();
-    const len = std.math.cast(usize, len_u64) orelse return GoweError.InvalidData;
+    const len = std.math.cast(usize, len_u64) orelse return RecurramError.InvalidData;
     const out = try allocator.alloc(f64, len);
     for (out) |*slot| {
         const bytes = try reader.readExact(8);
@@ -171,7 +171,7 @@ fn encodeU64Plain(values: []const u64, out: *std.array_list.Managed(u8)) !void {
 
 fn decodeU64Plain(reader: *Reader, allocator: Allocator) ![]u64 {
     const len_u64 = try reader.readVaruint();
-    const len = std.math.cast(usize, len_u64) orelse return GoweError.InvalidData;
+    const len = std.math.cast(usize, len_u64) orelse return RecurramError.InvalidData;
     const out = try allocator.alloc(u64, len);
     for (out) |*slot| {
         slot.* = try reader.readVaruint();
@@ -200,7 +200,7 @@ fn encodeU64Rle(values: []const u64, out: *std.array_list.Managed(u8)) !void {
 
 fn decodeU64Rle(reader: *Reader, allocator: Allocator) ![]u64 {
     const runs_len_u64 = try reader.readVaruint();
-    const runs_len = std.math.cast(usize, runs_len_u64) orelse return GoweError.InvalidData;
+    const runs_len = std.math.cast(usize, runs_len_u64) orelse return RecurramError.InvalidData;
     var out = std.array_list.Managed(u64).init(allocator);
     errdefer out.deinit();
 
@@ -208,7 +208,7 @@ fn decodeU64Rle(reader: *Reader, allocator: Allocator) ![]u64 {
     while (run_idx < runs_len) : (run_idx += 1) {
         const value = try reader.readVaruint();
         const count_u64 = try reader.readVaruint();
-        const count = std.math.cast(usize, count_u64) orelse return GoweError.InvalidData;
+        const count = std.math.cast(usize, count_u64) orelse return RecurramError.InvalidData;
         try out.appendNTimes(value, count);
     }
 
@@ -231,13 +231,13 @@ fn encodeU64DirectBitpack(values: []const u64, out: *std.array_list.Managed(u8))
 
 fn decodeU64DirectBitpack(reader: *Reader, allocator: Allocator) ![]u64 {
     const len_u64 = try reader.readVaruint();
-    const len = std.math.cast(usize, len_u64) orelse return GoweError.InvalidData;
+    const len = std.math.cast(usize, len_u64) orelse return RecurramError.InvalidData;
     const width = try reader.readU8();
     if (len == 0) {
         return try allocator.alloc(u64, 0);
     }
     if (width == 0 or width > 64) {
-        return GoweError.InvalidData;
+        return RecurramError.InvalidData;
     }
     return unpackU64Values(reader, len, width, allocator);
 }
@@ -251,7 +251,7 @@ fn encodeI64Plain(values: []const i64, out: *std.array_list.Managed(u8)) !void {
 
 fn decodeI64Plain(reader: *Reader, allocator: Allocator) ![]i64 {
     const len_u64 = try reader.readVaruint();
-    const len = std.math.cast(usize, len_u64) orelse return GoweError.InvalidData;
+    const len = std.math.cast(usize, len_u64) orelse return RecurramError.InvalidData;
     const out = try allocator.alloc(i64, len);
     for (out) |*slot| {
         slot.* = wire.decodeZigzag(try reader.readVaruint());
@@ -379,7 +379,7 @@ fn encodeU64Simple8bInner(values: []const u64, out: *std.array_list.Managed(u8))
 
 fn decodeU64Simple8bInner(reader: *Reader, allocator: Allocator) ![]u64 {
     const len_u64 = try reader.readVaruint();
-    const len = std.math.cast(usize, len_u64) orelse return GoweError.InvalidData;
+    const len = std.math.cast(usize, len_u64) orelse return RecurramError.InvalidData;
     if (len == 0) {
         return try allocator.alloc(u64, 0);
     }
@@ -392,7 +392,7 @@ fn decodeU64Simple8bInner(reader: *Reader, allocator: Allocator) ![]u64 {
         return out;
     }
     if (mode != 1) {
-        return GoweError.InvalidData;
+        return RecurramError.InvalidData;
     }
 
     var out = std.array_list.Managed(u64).init(allocator);
@@ -424,7 +424,7 @@ fn decodeU64Simple8bInner(reader: *Reader, allocator: Allocator) ![]u64 {
                     shift += @as(u6, @intCast(slot.width));
                 }
             },
-            else => return GoweError.InvalidData,
+            else => return RecurramError.InvalidData,
         }
     }
     return out.toOwnedSlice();
@@ -453,7 +453,7 @@ fn undelta(values: []i64, allocator: Allocator) ![]i64 {
             prev = value;
             continue;
         }
-        const next = std.math.add(i64, prev, value) catch return GoweError.InvalidData;
+        const next = std.math.add(i64, prev, value) catch return RecurramError.InvalidData;
         out[idx] = next;
         prev = next;
     }
@@ -482,7 +482,7 @@ fn encodeI64Rle(values: []const i64, out: *std.array_list.Managed(u8)) !void {
 
 fn decodeI64Rle(reader: *Reader, allocator: Allocator) ![]i64 {
     const runs_len_u64 = try reader.readVaruint();
-    const runs_len = std.math.cast(usize, runs_len_u64) orelse return GoweError.InvalidData;
+    const runs_len = std.math.cast(usize, runs_len_u64) orelse return RecurramError.InvalidData;
     var out = std.array_list.Managed(i64).init(allocator);
     errdefer out.deinit();
 
@@ -490,7 +490,7 @@ fn decodeI64Rle(reader: *Reader, allocator: Allocator) ![]i64 {
     while (idx < runs_len) : (idx += 1) {
         const value = wire.decodeZigzag(try reader.readVaruint());
         const count_u64 = try reader.readVaruint();
-        const count = std.math.cast(usize, count_u64) orelse return GoweError.InvalidData;
+        const count = std.math.cast(usize, count_u64) orelse return RecurramError.InvalidData;
         try out.appendNTimes(value, count);
     }
     return out.toOwnedSlice();
@@ -545,7 +545,7 @@ fn encodeI64PatchedFor(values: []const i64, out: *std.array_list.Managed(u8)) !v
 
 fn decodeI64PatchedFor(reader: *Reader, allocator: Allocator) ![]i64 {
     const len_u64 = try reader.readVaruint();
-    const len = std.math.cast(usize, len_u64) orelse return GoweError.InvalidData;
+    const len = std.math.cast(usize, len_u64) orelse return RecurramError.InvalidData;
     if (len == 0) {
         return try allocator.alloc(i64, 0);
     }
@@ -558,11 +558,11 @@ fn decodeI64PatchedFor(reader: *Reader, allocator: Allocator) ![]i64 {
     }
 
     const patch_count_u64 = try reader.readVaruint();
-    const patch_count = std.math.cast(usize, patch_count_u64) orelse return GoweError.InvalidData;
+    const patch_count = std.math.cast(usize, patch_count_u64) orelse return RecurramError.InvalidData;
     var idx: usize = 0;
     while (idx < patch_count) : (idx += 1) {
         const pos_u64 = try reader.readVaruint();
-        const pos = std.math.cast(usize, pos_u64) orelse return GoweError.InvalidData;
+        const pos = std.math.cast(usize, pos_u64) orelse return RecurramError.InvalidData;
         const patch = @as(i64, @intCast(try reader.readVaruint()));
         if (pos < values.len) {
             values[pos] = patch;
@@ -604,7 +604,7 @@ fn encodeXorFloat(values: []const f64, out: *std.array_list.Managed(u8)) !void {
 
 fn decodeXorFloat(reader: *Reader, allocator: Allocator) ![]f64 {
     const len_u64 = try reader.readVaruint();
-    const len = std.math.cast(usize, len_u64) orelse return GoweError.InvalidData;
+    const len = std.math.cast(usize, len_u64) orelse return RecurramError.InvalidData;
     if (len == 0) {
         return try allocator.alloc(f64, 0);
     }
@@ -623,7 +623,7 @@ fn decodeXorFloat(reader: *Reader, allocator: Allocator) ![]f64 {
             const width = try reader.readVaruint();
             const payload = try reader.readVaruint();
             if (leading + trailing + width > 64) {
-                return GoweError.InvalidData;
+                return RecurramError.InvalidData;
             }
             const x = if (width == 64) payload else payload << @intCast(trailing);
             break :blk prev ^ x;
@@ -653,13 +653,13 @@ fn encodeI64DirectBitpack(values: []const i64, out: *std.array_list.Managed(u8))
 
 fn decodeI64DirectBitpack(reader: *Reader, allocator: Allocator) ![]i64 {
     const len_u64 = try reader.readVaruint();
-    const len = std.math.cast(usize, len_u64) orelse return GoweError.InvalidData;
+    const len = std.math.cast(usize, len_u64) orelse return RecurramError.InvalidData;
     const width = try reader.readU8();
     if (len == 0) {
         return try allocator.alloc(i64, 0);
     }
     if (width == 0 or width > 64) {
-        return GoweError.InvalidData;
+        return RecurramError.InvalidData;
     }
     const encoded = try unpackU64Values(reader, len, width, allocator);
     errdefer allocator.free(encoded);
@@ -693,7 +693,7 @@ fn encodeI64DeltaDelta(values: []const i64, out: *std.array_list.Managed(u8)) !v
 
 fn decodeI64DeltaDelta(reader: *Reader, allocator: Allocator) ![]i64 {
     const len_u64 = try reader.readVaruint();
-    const len = std.math.cast(usize, len_u64) orelse return GoweError.InvalidData;
+    const len = std.math.cast(usize, len_u64) orelse return RecurramError.InvalidData;
     if (len == 0) {
         return try allocator.alloc(i64, 0);
     }
@@ -707,17 +707,17 @@ fn decodeI64DeltaDelta(reader: *Reader, allocator: Allocator) ![]i64 {
     const dd = try decodeI64DirectBitpack(reader, allocator);
     defer allocator.free(dd);
     if (dd.len != len - 2) {
-        return GoweError.InvalidData;
+        return RecurramError.InvalidData;
     }
 
     const out = try allocator.alloc(i64, len);
     out[0] = first;
-    out[1] = std.math.add(i64, first, first_delta) catch return GoweError.InvalidData;
+    out[1] = std.math.add(i64, first, first_delta) catch return RecurramError.InvalidData;
     var prev = out[1];
     var prev_delta = first_delta;
     for (dd, 0..) |ddv, idx| {
-        const delta_value = std.math.add(i64, prev_delta, ddv) catch return GoweError.InvalidData;
-        const next = std.math.add(i64, prev, delta_value) catch return GoweError.InvalidData;
+        const delta_value = std.math.add(i64, prev_delta, ddv) catch return RecurramError.InvalidData;
+        const next = std.math.add(i64, prev, delta_value) catch return RecurramError.InvalidData;
         out[idx + 2] = next;
         prev = next;
         prev_delta = delta_value;
@@ -755,7 +755,7 @@ fn unpackU64Values(reader: *Reader, len: usize, width: u8, allocator: Allocator)
         while (acc_bits < width) {
             if (idx >= bytes.len) {
                 allocator.free(out);
-                return GoweError.InvalidData;
+                return RecurramError.InvalidData;
             }
             acc |= (@as(u128, bytes[idx]) << @as(std.math.Log2Int(u128), @intCast(acc_bits)));
             idx += 1;

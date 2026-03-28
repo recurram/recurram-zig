@@ -3,12 +3,12 @@
 version = 4
 
 [[package]]
-name = "gowe"
+name = "recurram"
 version = "0.1.0"
 
 [[package]]
 name = "rust-server-fixtures"
 version = "0.1.0"
 dependencies = [
- "gowe",
+ "recurram",
 ]

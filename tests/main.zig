@@ -1,9 +1,9 @@
 const std = @import("std");
-const gowe = @import("gowe");
+const recurram = @import("recurram");
 
 test "shape promotes after second three-field map" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
     var value = try userMapValue(allocator, 1, "alice", "admin");
@@ -24,13 +24,13 @@ test "shape promotes after second three-field map" {
 
 test "two-field map keeps map and uses key ids" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
-    var entries = try allocator.alloc(gowe.model.ValueMapEntry, 2);
+    var entries = try allocator.alloc(recurram.model.ValueMapEntry, 2);
     entries[0] = .{ .key = try allocator.dupe(u8, "id"), .value = .{ .U64 = 1 } };
     entries[1] = .{ .key = try allocator.dupe(u8, "name"), .value = .{ .String = try allocator.dupe(u8, "alice") } };
-    var value = gowe.Value{ .Map = entries };
+    var value = recurram.Value{ .Map = entries };
     defer value.deinit(allocator);
 
     const first = try codec.encodeValue(&value);
@@ -54,14 +54,14 @@ test "two-field map keeps map and uses key ids" {
 
 test "typed vector threshold is applied" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
-    var short_values = try allocator.alloc(gowe.Value, 3);
+    var short_values = try allocator.alloc(recurram.Value, 3);
     short_values[0] = .{ .I64 = 1 };
     short_values[1] = .{ .I64 = 2 };
     short_values[2] = .{ .I64 = 3 };
-    var short = gowe.Value{ .Array = short_values };
+    var short = recurram.Value{ .Array = short_values };
     defer short.deinit(allocator);
 
     const short_bytes = try codec.encodeValue(&short);
@@ -70,12 +70,12 @@ test "typed vector threshold is applied" {
     defer short_msg.deinit(allocator);
     try std.testing.expect(short_msg == .Array);
 
-    var long_values = try allocator.alloc(gowe.Value, 4);
+    var long_values = try allocator.alloc(recurram.Value, 4);
     long_values[0] = .{ .I64 = 1 };
     long_values[1] = .{ .I64 = 2 };
     long_values[2] = .{ .I64 = 3 };
     long_values[3] = .{ .I64 = 4 };
-    var long = gowe.Value{ .Array = long_values };
+    var long = recurram.Value{ .Array = long_values };
     defer long.deinit(allocator);
 
     const long_bytes = try codec.encodeValue(&long);
@@ -87,39 +87,39 @@ test "typed vector threshold is applied" {
 
 test "string modes empty ref and prefix delta are used" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
-    const empty_value = gowe.Value{ .String = try allocator.alloc(u8, 0) };
+    const empty_value = recurram.Value{ .String = try allocator.alloc(u8, 0) };
     const empty_bytes = try codec.encodeValue(&empty_value);
     defer allocator.free(empty_bytes);
-    try std.testing.expectEqual(@as(u8, @intFromEnum(gowe.model.StringMode.Empty)), empty_bytes[2]);
+    try std.testing.expectEqual(@as(u8, @intFromEnum(recurram.model.StringMode.Empty)), empty_bytes[2]);
 
-    const literal_value = gowe.Value{ .String = try allocator.dupe(u8, "alpha") };
+    const literal_value = recurram.Value{ .String = try allocator.dupe(u8, "alpha") };
     defer allocator.free(literal_value.String);
     const literal_bytes = try codec.encodeValue(&literal_value);
     defer allocator.free(literal_bytes);
-    try std.testing.expectEqual(@as(u8, @intFromEnum(gowe.model.StringMode.Literal)), literal_bytes[2]);
+    try std.testing.expectEqual(@as(u8, @intFromEnum(recurram.model.StringMode.Literal)), literal_bytes[2]);
 
     const ref_bytes = try codec.encodeValue(&literal_value);
     defer allocator.free(ref_bytes);
-    try std.testing.expectEqual(@as(u8, @intFromEnum(gowe.model.StringMode.Ref)), ref_bytes[2]);
+    try std.testing.expectEqual(@as(u8, @intFromEnum(recurram.model.StringMode.Ref)), ref_bytes[2]);
 
-    const base = gowe.Value{ .String = try allocator.dupe(u8, "prefix_common_aaaa") };
+    const base = recurram.Value{ .String = try allocator.dupe(u8, "prefix_common_aaaa") };
     defer allocator.free(base.String);
     const base_bytes = try codec.encodeValue(&base);
     defer allocator.free(base_bytes);
 
-    const pd = gowe.Value{ .String = try allocator.dupe(u8, "prefix_common_bbbb") };
+    const pd = recurram.Value{ .String = try allocator.dupe(u8, "prefix_common_bbbb") };
     defer allocator.free(pd.String);
     const pd_bytes = try codec.encodeValue(&pd);
     defer allocator.free(pd_bytes);
-    try std.testing.expectEqual(@as(u8, @intFromEnum(gowe.model.StringMode.PrefixDelta)), pd_bytes[2]);
+    try std.testing.expectEqual(@as(u8, @intFromEnum(recurram.model.StringMode.PrefixDelta)), pd_bytes[2]);
 }
 
 test "schema id is sent first then omitted" {
     const allocator = std.testing.allocator;
-    var enc = gowe.SessionEncoder.init(allocator, .{});
+    var enc = recurram.SessionEncoder.init(allocator, .{});
     defer enc.deinit();
 
     var schema = try userSchema(allocator);
@@ -144,23 +144,23 @@ test "schema id is sent first then omitted" {
 
 test "encode with schema rejects missing required field" {
     const allocator = std.testing.allocator;
-    var enc = gowe.SessionEncoder.init(allocator, .{});
+    var enc = recurram.SessionEncoder.init(allocator, .{});
     defer enc.deinit();
 
     var schema = try userSchema(allocator);
     defer schema.deinit(allocator);
 
-    var entries = try allocator.alloc(gowe.model.ValueMapEntry, 1);
+    var entries = try allocator.alloc(recurram.model.ValueMapEntry, 1);
     entries[0] = .{ .key = try allocator.dupe(u8, "id"), .value = .{ .U64 = 1005 } };
-    var value = gowe.Value{ .Map = entries };
+    var value = recurram.Value{ .Map = entries };
     defer value.deinit(allocator);
 
-    try std.testing.expectError(gowe.GoweError.InvalidData, enc.encodeWithSchema(schema, &value));
+    try std.testing.expectError(recurram.RecurramError.InvalidData, enc.encodeWithSchema(schema, &value));
 }
 
 test "batch threshold selects row vs column" {
     const allocator = std.testing.allocator;
-    var enc = gowe.SessionEncoder.init(allocator, .{});
+    var enc = recurram.SessionEncoder.init(allocator, .{});
     defer enc.deinit();
 
     const rows_15 = try makeIdRows(allocator, 15);
@@ -185,38 +185,38 @@ test "vector codecs roundtrip smoke" {
     const input_i64 = [_]i64{ 1, 2, 3, -1, 0, 4, -2, 6, 8, 10, -3, 5 };
     var out = std.array_list.Managed(u8).init(allocator);
     defer out.deinit();
-    try gowe.codec.encodeI64Vector(&input_i64, .Simple8b, &out);
-    var reader = gowe.wire.Reader.init(out.items);
-    const decoded_i64 = try gowe.codec.decodeI64Vector(&reader, .Simple8b, allocator);
+    try recurram.codec.encodeI64Vector(&input_i64, .Simple8b, &out);
+    var reader = recurram.wire.Reader.init(out.items);
+    const decoded_i64 = try recurram.codec.decodeI64Vector(&reader, .Simple8b, allocator);
     defer allocator.free(decoded_i64);
     try std.testing.expectEqualSlices(i64, &input_i64, decoded_i64);
 
     out.clearRetainingCapacity();
     const input_f64 = [_]f64{ 1.0, 1.0, 1.125, 1.25, 1.25, 1.375, 1.5 };
-    try gowe.codec.encodeF64Vector(&input_f64, .XorFloat, &out);
-    reader = gowe.wire.Reader.init(out.items);
-    const decoded_f64 = try gowe.codec.decodeF64Vector(&reader, .XorFloat, allocator);
+    try recurram.codec.encodeF64Vector(&input_f64, .XorFloat, &out);
+    reader = recurram.wire.Reader.init(out.items);
+    const decoded_f64 = try recurram.codec.decodeF64Vector(&reader, .XorFloat, allocator);
     defer allocator.free(decoded_f64);
     try std.testing.expectEqualSlices(f64, &input_f64, decoded_f64);
 }
 
 test "reset tables clears string interning" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
-    var value = gowe.Value{ .String = try allocator.dupe(u8, "ephemeral") };
+    var value = recurram.Value{ .String = try allocator.dupe(u8, "ephemeral") };
     defer value.deinit(allocator);
 
     const first = try codec.encodeValue(&value);
     defer allocator.free(first);
-    try std.testing.expectEqual(@as(u8, @intFromEnum(gowe.model.StringMode.Literal)), scalarStringMode(first));
+    try std.testing.expectEqual(@as(u8, @intFromEnum(recurram.model.StringMode.Literal)), scalarStringMode(first));
 
     const reused = try codec.encodeValue(&value);
     defer allocator.free(reused);
-    try std.testing.expectEqual(@as(u8, @intFromEnum(gowe.model.StringMode.Ref)), scalarStringMode(reused));
+    try std.testing.expectEqual(@as(u8, @intFromEnum(recurram.model.StringMode.Ref)), scalarStringMode(reused));
 
-    var reset_msg = gowe.Message{ .Control = .{ .ResetTables = {} } };
+    var reset_msg = recurram.Message{ .Control = .{ .ResetTables = {} } };
     const reset_bytes = try codec.encodeMessage(&reset_msg);
     defer allocator.free(reset_bytes);
     var decoded_reset = try codec.decodeMessage(reset_bytes);
@@ -226,18 +226,18 @@ test "reset tables clears string interning" {
 
     const after_reset = try codec.encodeValue(&value);
     defer allocator.free(after_reset);
-    try std.testing.expectEqual(@as(u8, @intFromEnum(gowe.model.StringMode.Literal)), scalarStringMode(after_reset));
+    try std.testing.expectEqual(@as(u8, @intFromEnum(recurram.model.StringMode.Literal)), scalarStringMode(after_reset));
 }
 
 test "register shape with key ids roundtrips" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
     const reg_keys_values = try allocator.alloc([]u8, 2);
     reg_keys_values[0] = try allocator.dupe(u8, "id");
     reg_keys_values[1] = try allocator.dupe(u8, "name");
-    var reg_keys = gowe.Message{ .Control = .{ .RegisterKeys = reg_keys_values } };
+    var reg_keys = recurram.Message{ .Control = .{ .RegisterKeys = reg_keys_values } };
     defer reg_keys.deinit(allocator);
 
     const reg_keys_bytes = try codec.encodeMessage(&reg_keys);
@@ -246,22 +246,22 @@ test "register shape with key ids roundtrips" {
     defer reg_keys_decoded.deinit(allocator);
     try std.testing.expect(reg_keys_decoded == .Control);
 
-    const shape_keys = try allocator.alloc(gowe.model.KeyRef, 2);
+    const shape_keys = try allocator.alloc(recurram.model.KeyRef, 2);
     shape_keys[0] = .{ .Id = 0 };
     shape_keys[1] = .{ .Id = 1 };
-    var reg_shape = gowe.Message{ .Control = .{ .RegisterShape = .{ .shape_id = 99, .keys = shape_keys } } };
+    var reg_shape = recurram.Message{ .Control = .{ .RegisterShape = .{ .shape_id = 99, .keys = shape_keys } } };
     defer reg_shape.deinit(allocator);
 
     const reg_shape_bytes = try codec.encodeMessage(&reg_shape);
     defer allocator.free(reg_shape_bytes);
     var reg_shape_decoded = try codec.decodeMessage(reg_shape_bytes);
     defer reg_shape_decoded.deinit(allocator);
-    try std.testing.expect(gowe.model.Message.eql(reg_shape_decoded, reg_shape));
+    try std.testing.expect(recurram.model.Message.eql(reg_shape_decoded, reg_shape));
 
-    const shaped_values = try allocator.alloc(gowe.Value, 2);
+    const shaped_values = try allocator.alloc(recurram.Value, 2);
     shaped_values[0] = .{ .U64 = 1 };
     shaped_values[1] = .{ .String = try allocator.dupe(u8, "alice") };
-    var shaped = gowe.Message{ .ShapedObject = .{ .shape_id = 99, .presence = null, .values = shaped_values } };
+    var shaped = recurram.Message{ .ShapedObject = .{ .shape_id = 99, .presence = null, .values = shaped_values } };
     defer shaped.deinit(allocator);
 
     const shaped_bytes = try codec.encodeMessage(&shaped);
@@ -271,18 +271,18 @@ test "register shape with key ids roundtrips" {
 
     var expected = try idNameMapValue(allocator, 1, "alice");
     defer expected.deinit(allocator);
-    try std.testing.expect(gowe.Value.eql(decoded_value, expected));
+    try std.testing.expect(recurram.Value.eql(decoded_value, expected));
 }
 
 test "reset state clears shape resolution" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
-    const shape_keys = try allocator.alloc(gowe.model.KeyRef, 2);
+    const shape_keys = try allocator.alloc(recurram.model.KeyRef, 2);
     shape_keys[0] = .{ .Literal = try allocator.dupe(u8, "id") };
     shape_keys[1] = .{ .Literal = try allocator.dupe(u8, "name") };
-    var reg_shape = gowe.Message{ .Control = .{ .RegisterShape = .{ .shape_id = 7, .keys = shape_keys } } };
+    var reg_shape = recurram.Message{ .Control = .{ .RegisterShape = .{ .shape_id = 7, .keys = shape_keys } } };
     defer reg_shape.deinit(allocator);
 
     const reg_bytes = try codec.encodeMessage(&reg_shape);
@@ -290,21 +290,21 @@ test "reset state clears shape resolution" {
     var reg_decoded = try codec.decodeMessage(reg_bytes);
     defer reg_decoded.deinit(allocator);
 
-    var reset = gowe.Message{ .Control = .{ .ResetState = {} } };
+    var reset = recurram.Message{ .Control = .{ .ResetState = {} } };
     const reset_bytes = try codec.encodeMessage(&reset);
     defer allocator.free(reset_bytes);
     var reset_decoded = try codec.decodeMessage(reset_bytes);
     defer reset_decoded.deinit(allocator);
 
-    const shaped_values = try allocator.alloc(gowe.Value, 2);
+    const shaped_values = try allocator.alloc(recurram.Value, 2);
     shaped_values[0] = .{ .U64 = 1 };
     shaped_values[1] = .{ .String = try allocator.dupe(u8, "alice") };
-    var shaped = gowe.Message{ .ShapedObject = .{ .shape_id = 7, .presence = null, .values = shaped_values } };
+    var shaped = recurram.Message{ .ShapedObject = .{ .shape_id = 7, .presence = null, .values = shaped_values } };
     defer shaped.deinit(allocator);
 
     const shaped_bytes = try codec.encodeMessage(&shaped);
     defer allocator.free(shaped_bytes);
-    try std.testing.expectError(gowe.GoweError.UnknownReference, codec.decodeValue(shaped_bytes));
+    try std.testing.expectError(recurram.RecurramError.UnknownReference, codec.decodeValue(shaped_bytes));
 }
 
 test "unknown key reference honors policies" {
@@ -312,13 +312,13 @@ test "unknown key reference honors policies" {
     const bytes = try unknownKeyMapBytes(allocator, 42);
     defer allocator.free(bytes);
 
-    var fail_fast = gowe.GoweCodec.init(allocator, .{});
+    var fail_fast = recurram.RecurramCodec.init(allocator, .{});
     defer fail_fast.deinit();
-    try std.testing.expectError(gowe.GoweError.UnknownReference, fail_fast.decodeMessage(bytes));
+    try std.testing.expectError(recurram.RecurramError.UnknownReference, fail_fast.decodeMessage(bytes));
 
-    var stateless_retry = gowe.GoweCodec.init(allocator, .{ .unknown_reference_policy = .StatelessRetry });
+    var stateless_retry = recurram.RecurramCodec.init(allocator, .{ .unknown_reference_policy = .StatelessRetry });
     defer stateless_retry.deinit();
-    try std.testing.expectError(gowe.GoweError.StatelessRetryRequired, stateless_retry.decodeMessage(bytes));
+    try std.testing.expectError(recurram.RecurramError.StatelessRetryRequired, stateless_retry.decodeMessage(bytes));
 }
 
 test "vector codec simple8b u64 edge cases" {
@@ -337,17 +337,17 @@ test "vector codec simple8b u64 edge cases" {
     var out = std.array_list.Managed(u8).init(allocator);
     defer out.deinit();
 
-    try gowe.codec.encodeU64Vector(long_zero_runs, .Simple8b, &out);
-    var reader = gowe.wire.Reader.init(out.items);
-    const decoded_long = try gowe.codec.decodeU64Vector(&reader, .Simple8b, allocator);
+    try recurram.codec.encodeU64Vector(long_zero_runs, .Simple8b, &out);
+    var reader = recurram.wire.Reader.init(out.items);
+    const decoded_long = try recurram.codec.decodeU64Vector(&reader, .Simple8b, allocator);
     defer allocator.free(decoded_long);
     try std.testing.expectEqualSlices(u64, long_zero_runs, decoded_long);
 
     out.clearRetainingCapacity();
     const large_values = [_]u64{ @as(u64, 1) << 61, (@as(u64, 1) << 61) + 7, (@as(u64, 1) << 61) + 99 };
-    try gowe.codec.encodeU64Vector(&large_values, .Simple8b, &out);
-    reader = gowe.wire.Reader.init(out.items);
-    const decoded_large = try gowe.codec.decodeU64Vector(&reader, .Simple8b, allocator);
+    try recurram.codec.encodeU64Vector(&large_values, .Simple8b, &out);
+    reader = recurram.wire.Reader.init(out.items);
+    const decoded_large = try recurram.codec.decodeU64Vector(&reader, .Simple8b, allocator);
     defer allocator.free(decoded_large);
     try std.testing.expectEqualSlices(u64, &large_values, decoded_large);
 }
@@ -357,31 +357,31 @@ test "vector codec rejects malformed inputs" {
 
     var overflow_bytes = std.array_list.Managed(u8).init(allocator);
     defer overflow_bytes.deinit();
-    try gowe.wire.encodeVaruint(std.math.maxInt(u64), &overflow_bytes);
-    try gowe.wire.encodeVaruint(1, &overflow_bytes);
+    try recurram.wire.encodeVaruint(std.math.maxInt(u64), &overflow_bytes);
+    try recurram.wire.encodeVaruint(1, &overflow_bytes);
     try overflow_bytes.append(1);
     try overflow_bytes.append(1);
-    var overflow_reader = gowe.wire.Reader.init(overflow_bytes.items);
-    try std.testing.expectError(gowe.GoweError.InvalidData, gowe.codec.decodeU64Vector(&overflow_reader, .ForBitpack, allocator));
+    var overflow_reader = recurram.wire.Reader.init(overflow_bytes.items);
+    try std.testing.expectError(recurram.RecurramError.InvalidData, recurram.codec.decodeU64Vector(&overflow_reader, .ForBitpack, allocator));
 
     var invalid_width_bytes = std.array_list.Managed(u8).init(allocator);
     defer invalid_width_bytes.deinit();
-    try gowe.wire.encodeVaruint(1, &invalid_width_bytes);
+    try recurram.wire.encodeVaruint(1, &invalid_width_bytes);
     try invalid_width_bytes.append(0);
-    var width_reader = gowe.wire.Reader.init(invalid_width_bytes.items);
-    try std.testing.expectError(gowe.GoweError.InvalidData, gowe.codec.decodeI64Vector(&width_reader, .DirectBitpack, allocator));
+    var width_reader = recurram.wire.Reader.init(invalid_width_bytes.items);
+    try std.testing.expectError(recurram.RecurramError.InvalidData, recurram.codec.decodeI64Vector(&width_reader, .DirectBitpack, allocator));
 }
 
 test "decode value rejects control messages" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
-    var reset = gowe.Message{ .Control = .{ .ResetTables = {} } };
+    var reset = recurram.Message{ .Control = .{ .ResetTables = {} } };
     const bytes = try codec.encodeMessage(&reset);
     defer allocator.free(bytes);
 
-    try std.testing.expectError(gowe.GoweError.InvalidData, codec.decodeValue(bytes));
+    try std.testing.expectError(recurram.RecurramError.InvalidData, codec.decodeValue(bytes));
 }
 
 test "public api encode decode wrapper roundtrip" {
@@ -389,23 +389,23 @@ test "public api encode decode wrapper roundtrip" {
     var value = try idNameMapValue(allocator, 7, "alice");
     defer value.deinit(allocator);
 
-    const encoded = try gowe.encode(allocator, &value);
+    const encoded = try recurram.encode(allocator, &value);
     defer allocator.free(encoded);
 
-    var decoded = try gowe.decode(allocator, encoded);
+    var decoded = try recurram.decode(allocator, encoded);
     defer decoded.deinit(allocator);
-    try std.testing.expect(gowe.Value.eql(decoded, value));
+    try std.testing.expect(recurram.Value.eql(decoded, value));
 }
 
 test "control stream roundtrips for all declared codecs" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
     const payload = [_]u8{ 0, 0, 1, 1, 1, 2, 3, 3, 3, 3, 4 };
-    const codecs = [_]gowe.model.ControlStreamCodec{ .Plain, .Rle, .Bitpack, .Huffman, .Fse };
+    const codecs = [_]recurram.model.ControlStreamCodec{ .Plain, .Rle, .Bitpack, .Huffman, .Fse };
     for (codecs) |stream_codec| {
-        var msg = gowe.Message{ .ControlStream = .{
+        var msg = recurram.Message{ .ControlStream = .{
             .codec = stream_codec,
             .payload = try allocator.dupe(u8, &payload),
         } };
@@ -415,7 +415,7 @@ test "control stream roundtrips for all declared codecs" {
         defer allocator.free(bytes);
         var decoded = try codec.decodeMessage(bytes);
         defer decoded.deinit(allocator);
-        try std.testing.expect(gowe.model.Message.eql(decoded, msg));
+        try std.testing.expect(recurram.model.Message.eql(decoded, msg));
     }
 }
 
@@ -439,22 +439,22 @@ test "control stream bitpack compacts repetitive payloads" {
 
 test "control stream fse falls back to plain frame mode" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
     const payload = try allocator.alloc(u8, 512);
     defer allocator.free(payload);
     for (payload, 0..) |*slot, idx| slot.* = @intCast(idx % 4);
 
-    var msg = gowe.Message{ .ControlStream = .{ .codec = .Fse, .payload = try allocator.dupe(u8, payload) } };
+    var msg = recurram.Message{ .ControlStream = .{ .codec = .Fse, .payload = try allocator.dupe(u8, payload) } };
     defer msg.deinit(allocator);
 
     const bytes = try codec.encodeMessage(&msg);
     defer allocator.free(bytes);
 
-    var reader = gowe.wire.Reader.init(bytes);
-    try std.testing.expectEqual(@as(u8, @intFromEnum(gowe.model.MessageKind.ControlStream)), try reader.readU8());
-    try std.testing.expectEqual(@as(u8, @intFromEnum(gowe.model.ControlStreamCodec.Fse)), try reader.readU8());
+    var reader = recurram.wire.Reader.init(bytes);
+    try std.testing.expectEqual(@as(u8, @intFromEnum(recurram.model.MessageKind.ControlStream)), try reader.readU8());
+    try std.testing.expectEqual(@as(u8, @intFromEnum(recurram.model.ControlStreamCodec.Fse)), try reader.readU8());
     const framed = try reader.readBytes(allocator);
     defer allocator.free(framed);
     try std.testing.expect(framed.len > 0);
@@ -463,7 +463,7 @@ test "control stream fse falls back to plain frame mode" {
 
 test "micro batch reuses template and emits changed mask" {
     const allocator = std.testing.allocator;
-    var enc = gowe.SessionEncoder.init(allocator, .{});
+    var enc = recurram.SessionEncoder.init(allocator, .{});
     defer enc.deinit();
 
     const rows1 = try makeUserRows(allocator, &[_][]const u8{ "a", "b", "c", "d" });
@@ -496,19 +496,19 @@ test "micro batch reuses template and emits changed mask" {
 
 test "state patch uses recommended ratio threshold" {
     const allocator = std.testing.allocator;
-    var enc = gowe.SessionEncoder.init(allocator, .{});
+    var enc = recurram.SessionEncoder.init(allocator, .{});
     defer enc.deinit();
 
-    const base_values = try allocator.alloc(gowe.Value, 100);
+    const base_values = try allocator.alloc(recurram.Value, 100);
     defer freeValues(base_values, allocator);
     for (base_values, 0..) |*slot, idx| slot.* = .{ .I64 = @intCast(idx) };
-    var base = gowe.Value{ .Array = base_values };
+    var base = recurram.Value{ .Array = base_values };
 
     var one_change_values = try cloneValuesForTest(base_values, allocator);
     defer freeValues(one_change_values, allocator);
     one_change_values[0].deinit(allocator);
     one_change_values[0] = .{ .I64 = 10_000 };
-    var one_change = gowe.Value{ .Array = one_change_values };
+    var one_change = recurram.Value{ .Array = one_change_values };
 
     var many_change_values = try cloneValuesForTest(base_values, allocator);
     defer freeValues(many_change_values, allocator);
@@ -516,7 +516,7 @@ test "state patch uses recommended ratio threshold" {
         slot.deinit(allocator);
         slot.* = .{ .I64 = @intCast(10_000 + idx) };
     }
-    var many_change = gowe.Value{ .Array = many_change_values };
+    var many_change = recurram.Value{ .Array = many_change_values };
 
     const _base_bytes = try enc.encode(&base);
     defer allocator.free(_base_bytes);
@@ -536,33 +536,33 @@ test "state patch uses recommended ratio threshold" {
 
 test "unknown base id honors stateless retry policy" {
     const allocator = std.testing.allocator;
-    var enc = gowe.SessionEncoder.init(allocator, .{ .unknown_reference_policy = .StatelessRetry });
+    var enc = recurram.SessionEncoder.init(allocator, .{ .unknown_reference_policy = .StatelessRetry });
     defer enc.deinit();
 
-    var patch = gowe.Message{ .StatePatch = .{
+    var patch = recurram.Message{ .StatePatch = .{
         .base_ref = .{ .BaseId = 12345 },
-        .operations = try allocator.alloc(gowe.model.PatchOperation, 0),
-        .literals = try allocator.alloc(gowe.Value, 0),
+        .operations = try allocator.alloc(recurram.model.PatchOperation, 0),
+        .literals = try allocator.alloc(recurram.Value, 0),
     } };
     defer patch.deinit(allocator);
 
-    var plain = gowe.GoweCodec.init(allocator, .{});
+    var plain = recurram.RecurramCodec.init(allocator, .{});
     defer plain.deinit();
     const bytes = try plain.encodeMessage(&patch);
     defer allocator.free(bytes);
 
-    try std.testing.expectError(gowe.GoweError.StatelessRetryRequired, enc.decodeMessage(bytes));
+    try std.testing.expectError(recurram.RecurramError.StatelessRetryRequired, enc.decodeMessage(bytes));
 }
 
 test "state patch map insert and delete reconstructs previous message" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
-    const base_entries = try allocator.alloc(gowe.model.MapEntry, 2);
+    const base_entries = try allocator.alloc(recurram.model.MapEntry, 2);
     base_entries[0] = .{ .key = .{ .Literal = try allocator.dupe(u8, "id") }, .value = .{ .U64 = 1 } };
     base_entries[1] = .{ .key = .{ .Literal = try allocator.dupe(u8, "name") }, .value = .{ .String = try allocator.dupe(u8, "alice") } };
-    var base = gowe.Message{ .Map = base_entries };
+    var base = recurram.Message{ .Map = base_entries };
     defer base.deinit(allocator);
 
     const base_bytes = try codec.encodeMessage(&base);
@@ -570,16 +570,16 @@ test "state patch map insert and delete reconstructs previous message" {
     var base_decoded = try codec.decodeMessage(base_bytes);
     defer base_decoded.deinit(allocator);
 
-    const insert_ops = try allocator.alloc(gowe.model.PatchOperation, 1);
+    const insert_ops = try allocator.alloc(recurram.model.PatchOperation, 1);
     insert_ops[0] = .{
         .field_id = 2,
         .opcode = .InsertField,
         .value = try singleEntryMapValue(allocator, "role", .{ .String = try allocator.dupe(u8, "admin") }),
     };
-    var insert_patch = gowe.Message{ .StatePatch = .{
+    var insert_patch = recurram.Message{ .StatePatch = .{
         .base_ref = .{ .Previous = {} },
         .operations = insert_ops,
-        .literals = try allocator.alloc(gowe.Value, 0),
+        .literals = try allocator.alloc(recurram.Value, 0),
     } };
     defer insert_patch.deinit(allocator);
 
@@ -594,12 +594,12 @@ test "state patch map insert and delete reconstructs previous message" {
     try std.testing.expect(inserted == .Map);
     try std.testing.expectEqual(@as(usize, 3), inserted.Map.len);
 
-    const delete_ops = try allocator.alloc(gowe.model.PatchOperation, 1);
+    const delete_ops = try allocator.alloc(recurram.model.PatchOperation, 1);
     delete_ops[0] = .{ .field_id = 2, .opcode = .DeleteField, .value = null };
-    var delete_patch = gowe.Message{ .StatePatch = .{
+    var delete_patch = recurram.Message{ .StatePatch = .{
         .base_ref = .{ .Previous = {} },
         .operations = delete_ops,
-        .literals = try allocator.alloc(gowe.Value, 0),
+        .literals = try allocator.alloc(recurram.Value, 0),
     } };
     defer delete_patch.deinit(allocator);
 
@@ -617,58 +617,58 @@ test "state patch map insert and delete reconstructs previous message" {
 
 test "base snapshot roundtrips and registers by id" {
     const allocator = std.testing.allocator;
-    var codec = gowe.GoweCodec.init(allocator, .{});
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
-    const payload = try allocator.create(gowe.Message);
+    const payload = try allocator.create(recurram.Message);
     payload.* = .{ .Scalar = .{ .I64 = 42 } };
-    var msg = gowe.Message{ .BaseSnapshot = .{ .base_id = 77, .schema_or_shape_ref = 0, .payload = payload } };
+    var msg = recurram.Message{ .BaseSnapshot = .{ .base_id = 77, .schema_or_shape_ref = 0, .payload = payload } };
     defer msg.deinit(allocator);
 
     const bytes = try codec.encodeMessage(&msg);
     defer allocator.free(bytes);
     var decoded = try codec.decodeMessage(bytes);
     defer decoded.deinit(allocator);
-    try std.testing.expect(gowe.model.Message.eql(decoded, msg));
+    try std.testing.expect(recurram.model.Message.eql(decoded, msg));
 
     const registered = codec.state.getBaseSnapshot(77);
     try std.testing.expect(registered != null);
     try std.testing.expect(registered.?.* == .Scalar);
 }
 
-fn userMapValue(allocator: std.mem.Allocator, id: u64, name: []const u8, role: []const u8) !gowe.Value {
-    var entries = try allocator.alloc(gowe.model.ValueMapEntry, 3);
+fn userMapValue(allocator: std.mem.Allocator, id: u64, name: []const u8, role: []const u8) !recurram.Value {
+    var entries = try allocator.alloc(recurram.model.ValueMapEntry, 3);
     entries[0] = .{ .key = try allocator.dupe(u8, "id"), .value = .{ .U64 = id } };
     entries[1] = .{ .key = try allocator.dupe(u8, "name"), .value = .{ .String = try allocator.dupe(u8, name) } };
     entries[2] = .{ .key = try allocator.dupe(u8, "role"), .value = .{ .String = try allocator.dupe(u8, role) } };
     return .{ .Map = entries };
 }
 
-fn idNameMapValue(allocator: std.mem.Allocator, id: u64, name: []const u8) !gowe.Value {
-    var entries = try allocator.alloc(gowe.model.ValueMapEntry, 2);
+fn idNameMapValue(allocator: std.mem.Allocator, id: u64, name: []const u8) !recurram.Value {
+    var entries = try allocator.alloc(recurram.model.ValueMapEntry, 2);
     entries[0] = .{ .key = try allocator.dupe(u8, "id"), .value = .{ .U64 = id } };
     entries[1] = .{ .key = try allocator.dupe(u8, "name"), .value = .{ .String = try allocator.dupe(u8, name) } };
     return .{ .Map = entries };
 }
 
-fn cloneValuesForTest(values: []const gowe.Value, allocator: std.mem.Allocator) ![]gowe.Value {
-    const out = try allocator.alloc(gowe.Value, values.len);
+fn cloneValuesForTest(values: []const recurram.Value, allocator: std.mem.Allocator) ![]recurram.Value {
+    const out = try allocator.alloc(recurram.Value, values.len);
     for (values, 0..) |value, idx| {
         out[idx] = try value.clone(allocator);
     }
     return out;
 }
 
-fn singleEntryMapValue(allocator: std.mem.Allocator, key: []const u8, value: gowe.Value) !gowe.Value {
-    const entries = try allocator.alloc(gowe.model.ValueMapEntry, 1);
+fn singleEntryMapValue(allocator: std.mem.Allocator, key: []const u8, value: recurram.Value) !recurram.Value {
+    const entries = try allocator.alloc(recurram.model.ValueMapEntry, 1);
     entries[0] = .{ .key = try allocator.dupe(u8, key), .value = value };
     return .{ .Map = entries };
 }
 
-fn makeUserRows(allocator: std.mem.Allocator, names: []const []const u8) ![]gowe.Value {
-    const rows = try allocator.alloc(gowe.Value, names.len);
+fn makeUserRows(allocator: std.mem.Allocator, names: []const []const u8) ![]recurram.Value {
+    const rows = try allocator.alloc(recurram.Value, names.len);
     for (names, 0..) |name, idx| {
-        var entries = try allocator.alloc(gowe.model.ValueMapEntry, 2);
+        var entries = try allocator.alloc(recurram.model.ValueMapEntry, 2);
         entries[0] = .{ .key = try allocator.dupe(u8, "id"), .value = .{ .U64 = @intCast(idx + 1) } };
         entries[1] = .{ .key = try allocator.dupe(u8, "name"), .value = .{ .String = try allocator.dupe(u8, name) } };
         rows[idx] = .{ .Map = entries };
@@ -676,11 +676,11 @@ fn makeUserRows(allocator: std.mem.Allocator, names: []const []const u8) ![]gowe
     return rows;
 }
 
-fn encodedControlStreamLen(allocator: std.mem.Allocator, stream_codec: gowe.model.ControlStreamCodec, payload: []const u8) !usize {
-    var codec = gowe.GoweCodec.init(allocator, .{});
+fn encodedControlStreamLen(allocator: std.mem.Allocator, stream_codec: recurram.model.ControlStreamCodec, payload: []const u8) !usize {
+    var codec = recurram.RecurramCodec.init(allocator, .{});
     defer codec.deinit();
 
-    var msg = gowe.Message{ .ControlStream = .{ .codec = stream_codec, .payload = try allocator.dupe(u8, payload) } };
+    var msg = recurram.Message{ .ControlStream = .{ .codec = stream_codec, .payload = try allocator.dupe(u8, payload) } };
     defer msg.deinit(allocator);
     const bytes = try codec.encodeMessage(&msg);
     defer allocator.free(bytes);
@@ -695,17 +695,17 @@ fn unknownKeyMapBytes(allocator: std.mem.Allocator, key_id: u64) ![]u8 {
     var out = std.array_list.Managed(u8).init(allocator);
     errdefer out.deinit();
 
-    try out.append(@intFromEnum(gowe.model.MessageKind.Map));
-    try gowe.wire.encodeVaruint(1, &out);
+    try out.append(@intFromEnum(recurram.model.MessageKind.Map));
+    try recurram.wire.encodeVaruint(1, &out);
     try out.append(1);
-    try gowe.wire.encodeVaruint(key_id, &out);
+    try recurram.wire.encodeVaruint(key_id, &out);
     try out.append(0);
 
     return out.toOwnedSlice();
 }
 
-fn userSchema(allocator: std.mem.Allocator) !gowe.Schema {
-    var fields = try allocator.alloc(gowe.model.SchemaField, 3);
+fn userSchema(allocator: std.mem.Allocator) !recurram.Schema {
+    var fields = try allocator.alloc(recurram.model.SchemaField, 3);
     fields[0] = .{
         .number = 1,
         .name = try allocator.dupe(u8, "id"),
@@ -744,10 +744,10 @@ fn userSchema(allocator: std.mem.Allocator) !gowe.Schema {
     };
 }
 
-fn makeIdRows(allocator: std.mem.Allocator, count: usize) ![]gowe.Value {
-    const out = try allocator.alloc(gowe.Value, count);
+fn makeIdRows(allocator: std.mem.Allocator, count: usize) ![]recurram.Value {
+    const out = try allocator.alloc(recurram.Value, count);
     for (out, 0..) |*slot, idx| {
-        var entries = try allocator.alloc(gowe.model.ValueMapEntry, 1);
+        var entries = try allocator.alloc(recurram.model.ValueMapEntry, 1);
         entries[0] = .{
             .key = try allocator.dupe(u8, "id"),
             .value = .{ .U64 = @intCast(idx) },
@@ -757,7 +757,7 @@ fn makeIdRows(allocator: std.mem.Allocator, count: usize) ![]gowe.Value {
     return out;
 }
 
-fn freeValues(values: []gowe.Value, allocator: std.mem.Allocator) void {
+fn freeValues(values: []recurram.Value, allocator: std.mem.Allocator) void {
     for (values) |*value| {
         value.deinit(allocator);
     }

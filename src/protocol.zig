@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const codec = @import("codec.zig");
-const GoweError = @import("error.zig").GoweError;
+const RecurramError = @import("error.zig").RecurramError;
 const model = @import("model.zig");
 const session = @import("session.zig");
 const wire = @import("wire.zig");
@@ -51,38 +51,38 @@ const PrefixBase = struct {
     prefix_len: usize,
 };
 
-pub const GoweCodec = struct {
+pub const RecurramCodec = struct {
     allocator: Allocator,
     state: SessionState,
 
-    pub fn init(allocator: Allocator, options: SessionOptions) GoweCodec {
+    pub fn init(allocator: Allocator, options: SessionOptions) RecurramCodec {
         return .{
             .allocator = allocator,
             .state = SessionState.init(allocator, options),
         };
     }
 
-    pub fn withOptions(allocator: Allocator, options: SessionOptions) GoweCodec {
+    pub fn withOptions(allocator: Allocator, options: SessionOptions) RecurramCodec {
         return init(allocator, options);
     }
 
-    pub fn deinit(self: *GoweCodec) void {
+    pub fn deinit(self: *RecurramCodec) void {
         self.state.deinit();
     }
 
-    pub fn encodeMessage(self: *GoweCodec, message: *const Message) ![]u8 {
+    pub fn encodeMessage(self: *RecurramCodec, message: *const Message) ![]u8 {
         var out = std.array_list.Managed(u8).init(self.allocator);
         errdefer out.deinit();
         try self.writeMessage(message, &out);
         return out.toOwnedSlice();
     }
 
-    pub fn decodeMessage(self: *GoweCodec, bytes: []const u8) !Message {
+    pub fn decodeMessage(self: *RecurramCodec, bytes: []const u8) !Message {
         var reader = Reader.init(bytes);
         var msg = try self.readMessage(&reader);
         if (!reader.isEof()) {
             msg.deinit(self.allocator);
-            return GoweError.InvalidData;
+            return RecurramError.InvalidData;
         }
         switch (msg) {
             .Control => {},
@@ -105,7 +105,7 @@ pub const GoweCodec = struct {
         return msg;
     }
 
-    pub fn encodeValue(self: *GoweCodec, value: *const Value) ![]u8 {
+    pub fn encodeValue(self: *RecurramCodec, value: *const Value) ![]u8 {
         var message = try self.messageForValue(value);
         defer message.deinit(self.allocator);
         const bytes = try self.encodeMessage(&message);
@@ -113,7 +113,7 @@ pub const GoweCodec = struct {
         return bytes;
     }
 
-    pub fn decodeValue(self: *GoweCodec, bytes: []const u8) !Value {
+    pub fn decodeValue(self: *RecurramCodec, bytes: []const u8) !Value {
         var message = try self.decodeMessage(bytes);
         defer message.deinit(self.allocator);
         return switch (message) {
@@ -125,25 +125,25 @@ pub const GoweCodec = struct {
                 break :blk .{ .Map = try shapeValuesToMap(keys, shaped.presence, shaped.values, self.allocator) };
             },
             .TypedVector => |vector| try typedVectorToValue(vector, self.allocator),
-            else => GoweError.InvalidData,
+            else => RecurramError.InvalidData,
         };
     }
 
-    fn setPreviousMessage(self: *GoweCodec, message: Message) !void {
+    fn setPreviousMessage(self: *RecurramCodec, message: Message) !void {
         if (self.state.previous_message) |*previous| {
             previous.deinit(self.allocator);
         }
         self.state.previous_message = try message.clone(self.allocator);
     }
 
-    fn referenceError(self: *const GoweCodec) GoweError {
+    fn referenceError(self: *const RecurramCodec) RecurramError {
         return switch (self.state.options.unknown_reference_policy) {
-            .FailFast => GoweError.UnknownReference,
-            .StatelessRetry => GoweError.StatelessRetryRequired,
+            .FailFast => RecurramError.UnknownReference,
+            .StatelessRetry => RecurramError.StatelessRetryRequired,
         };
     }
 
-    fn messageForValue(self: *GoweCodec, value: *const Value) !Message {
+    fn messageForValue(self: *RecurramCodec, value: *const Value) !Message {
         return switch (value.*) {
             .Array => |items| blk: {
                 if (try self.tryMakeTypedVector(items)) |vector| {
@@ -167,13 +167,13 @@ pub const GoweCodec = struct {
         };
     }
 
-    fn hasEncodeShapeObservation(self: *GoweCodec, keys: []const []const u8) !bool {
+    fn hasEncodeShapeObservation(self: *RecurramCodec, keys: []const []const u8) !bool {
         const fingerprint = try shapeFingerprintOwned(self.allocator, keys);
         defer self.allocator.free(fingerprint);
         return self.state.encode_shape_observations.contains(fingerprint);
     }
 
-    fn observeEncodeShapeCandidate(self: *GoweCodec, keys: []const []const u8) !u64 {
+    fn observeEncodeShapeCandidate(self: *RecurramCodec, keys: []const []const u8) !u64 {
         const fingerprint = try shapeFingerprintOwned(self.allocator, keys);
         defer self.allocator.free(fingerprint);
 
@@ -194,7 +194,7 @@ pub const GoweCodec = struct {
         return observed;
     }
 
-    fn observeDecodeShapeCandidate(self: *GoweCodec, keys: []const []const u8) !void {
+    fn observeDecodeShapeCandidate(self: *RecurramCodec, keys: []const []const u8) !void {
         if ((try self.state.shape_table.getId(self.allocator, keys)) != null) {
             return;
         }
@@ -204,7 +204,7 @@ pub const GoweCodec = struct {
         }
     }
 
-    fn mapMessage(self: *GoweCodec, entries: []const ValueMapEntry) !Message {
+    fn mapMessage(self: *RecurramCodec, entries: []const ValueMapEntry) !Message {
         const map_entries = try self.allocator.alloc(MapEntry, entries.len);
         errdefer self.allocator.free(map_entries);
         for (entries, 0..) |entry, idx| {
@@ -222,7 +222,7 @@ pub const GoweCodec = struct {
         return .{ .Map = map_entries };
     }
 
-    fn shapedMessage(self: *GoweCodec, shape_id: u64, entries: []const ValueMapEntry) !Message {
+    fn shapedMessage(self: *RecurramCodec, shape_id: u64, entries: []const ValueMapEntry) !Message {
         const keys = self.state.shape_table.getKeys(shape_id) orelse &[_][]u8{};
         var values = std.array_list.Managed(Value).init(self.allocator);
         errdefer {
@@ -256,7 +256,7 @@ pub const GoweCodec = struct {
         } };
     }
 
-    fn tryMakeTypedVector(self: *GoweCodec, values: []const Value) !?TypedVector {
+    fn tryMakeTypedVector(self: *RecurramCodec, values: []const Value) !?TypedVector {
         if (values.len < 4) return null;
 
         if (allValuesOfType(values, .Bool)) {
@@ -313,7 +313,7 @@ pub const GoweCodec = struct {
         return null;
     }
 
-    fn writeMessage(self: *GoweCodec, message: *const Message, out: *std.array_list.Managed(u8)) !void {
+    fn writeMessage(self: *RecurramCodec, message: *const Message, out: *std.array_list.Managed(u8)) !void {
         switch (message.*) {
             .Scalar => |value| {
                 try out.append(@intFromEnum(MessageKind.Scalar));
@@ -472,9 +472,9 @@ pub const GoweCodec = struct {
         }
     }
 
-    fn readMessage(self: *GoweCodec, reader: *Reader) !Message {
+    fn readMessage(self: *RecurramCodec, reader: *Reader) !Message {
         const kind_byte = try reader.readU8();
-        const kind = MessageKind.fromByte(kind_byte) orelse return GoweError.InvalidKind;
+        const kind = MessageKind.fromByte(kind_byte) orelse return RecurramError.InvalidKind;
         return switch (kind) {
             .Scalar => .{ .Scalar = try self.readValue(reader, null) },
             .Array => blk: {
@@ -563,7 +563,7 @@ pub const GoweCodec = struct {
                 const schema_id: ?u64 = switch (has_schema) {
                     0 => null,
                     1 => try reader.readVaruint(),
-                    else => return GoweError.InvalidData,
+                    else => return RecurramError.InvalidData,
                 };
                 const presence = try self.readPresence(reader);
                 const len = try readCount(reader);
@@ -573,7 +573,7 @@ pub const GoweCodec = struct {
                 errdefer self.allocator.free(fields);
 
                 if (encoding_mode == 1) {
-                    const effective_schema_id = schema_id orelse self.state.last_schema_id orelse return GoweError.InvalidData;
+                    const effective_schema_id = schema_id orelse self.state.last_schema_id orelse return RecurramError.InvalidData;
                     const schema_ptr = self.state.schemas.getPtr(effective_schema_id) orelse return self.referenceError();
                     try self.readSchemaFields(schema_ptr.*, presence, len, reader, fields);
                     self.state.last_schema_id = effective_schema_id;
@@ -583,7 +583,7 @@ pub const GoweCodec = struct {
                     }
                     if (schema_id) |id| self.state.last_schema_id = id;
                 } else {
-                    return GoweError.InvalidData;
+                    return RecurramError.InvalidData;
                 }
 
                 break :blk .{ .SchemaObject = .{
@@ -628,7 +628,7 @@ pub const GoweCodec = struct {
                 errdefer self.allocator.free(operations);
                 for (operations) |*operation| {
                     const field_id = try reader.readVaruint();
-                    const opcode = PatchOpcode.fromByte(try reader.readU8()) orelse return GoweError.InvalidData;
+                    const opcode = PatchOpcode.fromByte(try reader.readU8()) orelse return RecurramError.InvalidData;
                     const has_value = try reader.readU8();
                     operation.* = .{
                         .field_id = field_id,
@@ -693,7 +693,7 @@ pub const GoweCodec = struct {
                 } };
             },
             .ControlStream => blk: {
-                const stream_codec = ControlStreamCodec.fromByte(try reader.readU8()) orelse return GoweError.InvalidData;
+                const stream_codec = ControlStreamCodec.fromByte(try reader.readU8()) orelse return RecurramError.InvalidData;
                 const payload = try readControlStreamPayload(self, stream_codec, reader);
                 break :blk .{ .ControlStream = .{ .codec = stream_codec, .payload = payload } };
             },
@@ -713,7 +713,7 @@ pub const GoweCodec = struct {
         };
     }
 
-    fn writeValue(self: *GoweCodec, value: *const Value, field_identity: ?[]const u8, out: *std.array_list.Managed(u8)) !void {
+    fn writeValue(self: *RecurramCodec, value: *const Value, field_identity: ?[]const u8, out: *std.array_list.Managed(u8)) !void {
         switch (value.*) {
             .Null => try out.append(TAG_NULL),
             .Bool => |v| try out.append(if (v) TAG_BOOL_TRUE else TAG_BOOL_FALSE),
@@ -785,7 +785,7 @@ pub const GoweCodec = struct {
         }
     }
 
-    fn readValue(self: *GoweCodec, reader: *Reader, field_identity: ?[]const u8) !Value {
+    fn readValue(self: *RecurramCodec, reader: *Reader, field_identity: ?[]const u8) !Value {
         const tag = try reader.readU8();
         return switch (tag) {
             TAG_NULL => .{ .Null = {} },
@@ -798,7 +798,7 @@ pub const GoweCodec = struct {
                 break :blk .{ .F64 = std.mem.bytesToValue(f64, bytes[0..8]) };
             },
             TAG_STRING => blk: {
-                const mode = StringMode.fromByte(try reader.readU8()) orelse return GoweError.InvalidData;
+                const mode = StringMode.fromByte(try reader.readU8()) orelse return RecurramError.InvalidData;
                 switch (mode) {
                     .Empty => break :blk .{ .String = try self.allocator.alloc(u8, 0) },
                     .Literal => {
@@ -814,13 +814,13 @@ pub const GoweCodec = struct {
                     .PrefixDelta => {
                         const base_id = try reader.readVaruint();
                         const prefix_len = try reader.readVaruint();
-                        const prefix_idx = std.math.cast(usize, prefix_len) orelse return GoweError.InvalidData;
+                        const prefix_idx = std.math.cast(usize, prefix_len) orelse return RecurramError.InvalidData;
                         const suffix = try reader.readString(self.allocator);
                         defer self.allocator.free(suffix);
 
                         const base = self.state.string_table.getValue(base_id) orelse return self.referenceError();
                         if (prefix_idx > base.len or !std.unicode.utf8ValidateSlice(base[0..prefix_idx])) {
-                            return GoweError.InvalidData;
+                            return RecurramError.InvalidData;
                         }
 
                         const combined = try self.allocator.alloc(u8, prefix_idx + suffix.len);
@@ -831,8 +831,8 @@ pub const GoweCodec = struct {
                     },
                     .InlineEnum => {
                         const code = try reader.readVaruint();
-                        const index = std.math.cast(usize, code) orelse return GoweError.InvalidData;
-                        const identity = field_identity orelse return GoweError.InvalidData;
+                        const index = std.math.cast(usize, code) orelse return RecurramError.InvalidData;
+                        const identity = field_identity orelse return RecurramError.InvalidData;
                         const values = self.state.field_enums.get(identity) orelse return self.referenceError();
                         if (index >= values.len) return self.referenceError();
                         break :blk .{ .String = try self.allocator.dupe(u8, values[index]) };
@@ -859,38 +859,38 @@ pub const GoweCodec = struct {
                 }
                 break :blk .{ .Map = entries };
             },
-            else => GoweError.InvalidTag,
+            else => RecurramError.InvalidTag,
         };
     }
 
-    fn writeSchemaFields(self: *GoweCodec, schema: Schema, presence: ?[]const bool, fields: []const Value, out: *std.array_list.Managed(u8)) !void {
+    fn writeSchemaFields(self: *RecurramCodec, schema: Schema, presence: ?[]const bool, fields: []const Value, out: *std.array_list.Managed(u8)) !void {
         const indices = try schemaPresentFieldIndices(schema, presence, self.allocator);
         defer self.allocator.free(indices);
-        if (indices.len != fields.len) return GoweError.InvalidData;
+        if (indices.len != fields.len) return RecurramError.InvalidData;
         for (indices, 0..) |index, idx| {
             try self.writeSchemaFieldValue(schema.fields[index], fields[idx], out);
         }
     }
 
-    fn readSchemaFields(self: *GoweCodec, schema: Schema, presence: ?[]const bool, expected_len: usize, reader: *Reader, out_fields: []Value) !void {
+    fn readSchemaFields(self: *RecurramCodec, schema: Schema, presence: ?[]const bool, expected_len: usize, reader: *Reader, out_fields: []Value) !void {
         const indices = try schemaPresentFieldIndices(schema, presence, self.allocator);
         defer self.allocator.free(indices);
-        if (indices.len != expected_len) return GoweError.InvalidData;
+        if (indices.len != expected_len) return RecurramError.InvalidData;
         for (indices, 0..) |index, idx| {
             out_fields[idx] = try self.readSchemaFieldValue(schema.fields[index], reader);
         }
     }
 
-    fn writeSchemaFieldValue(self: *GoweCodec, field: model.SchemaField, value: Value, out: *std.array_list.Managed(u8)) !void {
+    fn writeSchemaFieldValue(self: *RecurramCodec, field: model.SchemaField, value: Value, out: *std.array_list.Managed(u8)) !void {
         const ty = try normalizedLogicalType(field.logical_type, out.allocator);
         defer out.allocator.free(ty);
         if (std.mem.eql(u8, ty, "bool")) {
-            if (value != .Bool) return GoweError.InvalidData;
+            if (value != .Bool) return RecurramError.InvalidData;
             try out.append(if (value.Bool) 1 else 0);
             return;
         }
         if (std.mem.eql(u8, ty, "u64")) {
-            if (value != .U64) return GoweError.InvalidData;
+            if (value != .U64) return RecurramError.InvalidData;
             const u = value.U64;
             if (fieldU64Range(field)) |range| {
                 if (u >= range.min and u <= range.max) {
@@ -909,7 +909,7 @@ pub const GoweCodec = struct {
             return;
         }
         if (std.mem.eql(u8, ty, "i64")) {
-            if (value != .I64) return GoweError.InvalidData;
+            if (value != .I64) return RecurramError.InvalidData;
             const i = value.I64;
             if (fieldI64Range(field)) |range| {
                 if (i >= range.min and i <= range.max) {
@@ -928,13 +928,13 @@ pub const GoweCodec = struct {
             return;
         }
         if (std.mem.eql(u8, ty, "f64")) {
-            if (value != .F64) return GoweError.InvalidData;
+            if (value != .F64) return RecurramError.InvalidData;
             const f = value.F64;
             try out.appendSlice(std.mem.asBytes(&f));
             return;
         }
         if (std.mem.eql(u8, ty, "string")) {
-            if (value != .String) return GoweError.InvalidData;
+            if (value != .String) return RecurramError.InvalidData;
             if (self.state.field_enums.get(field.name)) |enum_values| {
                 if (indexOfString(enum_values, value.String)) |code| {
                     try out.append(1);
@@ -947,49 +947,49 @@ pub const GoweCodec = struct {
             return;
         }
         if (std.mem.eql(u8, ty, "binary")) {
-            if (value != .Binary) return GoweError.InvalidData;
+            if (value != .Binary) return RecurramError.InvalidData;
             try wire.encodeBytes(value.Binary, out);
             return;
         }
         try self.writeValue(&value, null, out);
     }
 
-    fn readSchemaFieldValue(self: *GoweCodec, field: model.SchemaField, reader: *Reader) !Value {
+    fn readSchemaFieldValue(self: *RecurramCodec, field: model.SchemaField, reader: *Reader) !Value {
         const ty = try normalizedLogicalType(field.logical_type, self.allocator);
         defer self.allocator.free(ty);
         if (std.mem.eql(u8, ty, "bool")) {
             return .{ .Bool = switch (try reader.readU8()) {
                 0 => false,
                 1 => true,
-                else => return GoweError.InvalidData,
+                else => return RecurramError.InvalidData,
             } };
         }
         if (std.mem.eql(u8, ty, "u64")) {
             const mode = try reader.readU8();
             const value: u64 = if (mode == 1) blk: {
-                const range = fieldU64Range(field) orelse return GoweError.InvalidData;
+                const range = fieldU64Range(field) orelse return RecurramError.InvalidData;
                 const bits = rangeBitWidthU64(range.min, range.max);
                 const offset = try readFixedBitsU64(reader, bits);
                 const span = range.max - range.min;
-                if (offset > span) return GoweError.InvalidData;
-                const v = std.math.add(u64, range.min, offset) catch return GoweError.InvalidData;
-                if (v > range.max) return GoweError.InvalidData;
+                if (offset > span) return RecurramError.InvalidData;
+                const v = std.math.add(u64, range.min, offset) catch return RecurramError.InvalidData;
+                if (v > range.max) return RecurramError.InvalidData;
                 break :blk v;
-            } else if (mode == 0) try readSmallestU64(reader) else return GoweError.InvalidData;
+            } else if (mode == 0) try readSmallestU64(reader) else return RecurramError.InvalidData;
             return .{ .U64 = value };
         }
         if (std.mem.eql(u8, ty, "i64")) {
             const mode = try reader.readU8();
             const value: i64 = if (mode == 1) blk: {
-                const range = fieldI64Range(field) orelse return GoweError.InvalidData;
+                const range = fieldI64Range(field) orelse return RecurramError.InvalidData;
                 const bits = rangeBitWidthI64(range.min, range.max);
                 const offset = try readFixedBitsU64(reader, bits);
                 const span = @as(i128, range.max) - @as(i128, range.min);
-                if (@as(i128, @intCast(offset)) > span) return GoweError.InvalidData;
+                if (@as(i128, @intCast(offset)) > span) return RecurramError.InvalidData;
                 const v128 = @as(i128, range.min) + @as(i128, @intCast(offset));
-                const v = std.math.cast(i64, v128) orelse return GoweError.InvalidData;
+                const v = std.math.cast(i64, v128) orelse return RecurramError.InvalidData;
                 break :blk v;
-            } else if (mode == 0) wire.decodeZigzag(try readSmallestU64(reader)) else return GoweError.InvalidData;
+            } else if (mode == 0) wire.decodeZigzag(try readSmallestU64(reader)) else return RecurramError.InvalidData;
             return .{ .I64 = value };
         }
         if (std.mem.eql(u8, ty, "f64")) {
@@ -1003,12 +1003,12 @@ pub const GoweCodec = struct {
             }
             if (mode == 1) {
                 const code_u64 = try reader.readVaruint();
-                const code = std.math.cast(usize, code_u64) orelse return GoweError.InvalidData;
+                const code = std.math.cast(usize, code_u64) orelse return RecurramError.InvalidData;
                 const values = self.state.field_enums.get(field.name) orelse return self.referenceError();
                 if (code >= values.len) return self.referenceError();
                 return .{ .String = try self.allocator.dupe(u8, values[code]) };
             }
-            return GoweError.InvalidData;
+            return RecurramError.InvalidData;
         }
         if (std.mem.eql(u8, ty, "binary")) {
             return .{ .Binary = try reader.readBytes(self.allocator) };
@@ -1016,7 +1016,7 @@ pub const GoweCodec = struct {
         return self.readValue(reader, null);
     }
 
-    fn writeKeyRef(self: *GoweCodec, key_ref: *const KeyRef, out: *std.array_list.Managed(u8)) !void {
+    fn writeKeyRef(self: *RecurramCodec, key_ref: *const KeyRef, out: *std.array_list.Managed(u8)) !void {
         _ = self;
         switch (key_ref.*) {
             .Literal => |value| {
@@ -1030,7 +1030,7 @@ pub const GoweCodec = struct {
         }
     }
 
-    fn readKeyRef(self: *GoweCodec, reader: *Reader) !KeyRef {
+    fn readKeyRef(self: *RecurramCodec, reader: *Reader) !KeyRef {
         const mode = try reader.readU8();
         return switch (mode) {
             0 => blk: {
@@ -1039,11 +1039,11 @@ pub const GoweCodec = struct {
                 break :blk .{ .Literal = key };
             },
             1 => .{ .Id = try reader.readVaruint() },
-            else => GoweError.InvalidData,
+            else => RecurramError.InvalidData,
         };
     }
 
-    fn writePresence(self: *GoweCodec, presence: ?[]const bool, out: *std.array_list.Managed(u8)) !void {
+    fn writePresence(self: *RecurramCodec, presence: ?[]const bool, out: *std.array_list.Managed(u8)) !void {
         _ = self;
         if (presence == null) {
             try out.append(0);
@@ -1067,7 +1067,7 @@ pub const GoweCodec = struct {
         }
     }
 
-    fn readPresence(self: *GoweCodec, reader: *Reader) !?[]bool {
+    fn readPresence(self: *RecurramCodec, reader: *Reader) !?[]bool {
         const has = try reader.readU8();
         return switch (has) {
             0 => null,
@@ -1077,11 +1077,11 @@ pub const GoweCodec = struct {
                 for (inverted) |*bit| bit.* = !bit.*;
                 break :blk inverted;
             },
-            else => GoweError.InvalidData,
+            else => RecurramError.InvalidData,
         };
     }
 
-    fn writeTypedVector(self: *GoweCodec, vector: *const TypedVector, out: *std.array_list.Managed(u8)) !void {
+    fn writeTypedVector(self: *RecurramCodec, vector: *const TypedVector, out: *std.array_list.Managed(u8)) !void {
         try out.append(@intFromEnum(vector.element_type));
         try wire.encodeVaruint(vector.data.len(), out);
         try out.append(@intFromEnum(vector.codec));
@@ -1106,13 +1106,13 @@ pub const GoweCodec = struct {
         }
     }
 
-    fn readTypedVector(self: *GoweCodec, reader: *Reader, expected_codec: ?VectorCodec) !TypedVector {
-        const element_type = ElementType.fromByte(try reader.readU8()) orelse return GoweError.InvalidData;
+    fn readTypedVector(self: *RecurramCodec, reader: *Reader, expected_codec: ?VectorCodec) !TypedVector {
+        const element_type = ElementType.fromByte(try reader.readU8()) orelse return RecurramError.InvalidData;
         const expected_len = try readCount(reader);
-        const codec_value = VectorCodec.fromByte(try reader.readU8()) orelse return GoweError.InvalidData;
+        const codec_value = VectorCodec.fromByte(try reader.readU8()) orelse return RecurramError.InvalidData;
         if (expected_codec) |expected| {
             if (codec_value != expected) {
-                return GoweError.InvalidData;
+                return RecurramError.InvalidData;
             }
         }
 
@@ -1145,7 +1145,7 @@ pub const GoweCodec = struct {
         if (data.len() != expected_len) {
             var tmp = data;
             tmp.deinit(self.allocator);
-            return GoweError.InvalidData;
+            return RecurramError.InvalidData;
         }
 
         return .{
@@ -1155,12 +1155,12 @@ pub const GoweCodec = struct {
         };
     }
 
-    fn writeColumn(self: *GoweCodec, column: *const Column, out: *std.array_list.Managed(u8)) !void {
+    fn writeColumn(self: *RecurramCodec, column: *const Column, out: *std.array_list.Managed(u8)) !void {
         try wire.encodeVaruint(column.field_id, out);
         try out.append(@intFromEnum(column.null_strategy));
         switch (column.null_strategy) {
             .PresenceBitmap, .InvertedPresenceBitmap => {
-                const presence = column.presence orelse return GoweError.InvalidData;
+                const presence = column.presence orelse return RecurramError.InvalidData;
                 try wire.encodeBitmap(presence, out);
             },
             .None, .AllPresentElided => {},
@@ -1197,14 +1197,14 @@ pub const GoweCodec = struct {
         try self.writeTypedVector(&vector, out);
     }
 
-    fn readColumn(self: *GoweCodec, reader: *Reader) !Column {
+    fn readColumn(self: *RecurramCodec, reader: *Reader) !Column {
         const field_id = try reader.readVaruint();
-        const null_strategy = NullStrategy.fromByte(try reader.readU8()) orelse return GoweError.InvalidData;
+        const null_strategy = NullStrategy.fromByte(try reader.readU8()) orelse return RecurramError.InvalidData;
         const presence = switch (null_strategy) {
             .PresenceBitmap, .InvertedPresenceBitmap => try reader.readBitmap(self.allocator),
             .None, .AllPresentElided => null,
         };
-        const codec_value = VectorCodec.fromByte(try reader.readU8()) orelse return GoweError.InvalidData;
+        const codec_value = VectorCodec.fromByte(try reader.readU8()) orelse return RecurramError.InvalidData;
 
         const has_dict = try reader.readU8();
         const dictionary_id: ?u64 = switch (has_dict) {
@@ -1214,15 +1214,15 @@ pub const GoweCodec = struct {
                 const has_profile = try reader.readU8();
                 switch (has_profile) {
                     0 => {},
-                    else => return GoweError.UnsupportedKind,
+                    else => return RecurramError.UnsupportedKind,
                 }
                 break :blk id;
             },
-            else => return GoweError.InvalidData,
+            else => return RecurramError.InvalidData,
         };
 
         const payload_mode = try reader.readU8();
-        if (payload_mode != 0) return GoweError.UnsupportedKind;
+        if (payload_mode != 0) return RecurramError.UnsupportedKind;
 
         const vector = try self.readTypedVector(reader, codec_value);
         return .{
@@ -1235,7 +1235,7 @@ pub const GoweCodec = struct {
         };
     }
 
-    fn writeControl(self: *GoweCodec, control: *const ControlMessage, out: *std.array_list.Managed(u8)) !void {
+    fn writeControl(self: *RecurramCodec, control: *const ControlMessage, out: *std.array_list.Managed(u8)) !void {
         switch (control.*) {
             .RegisterKeys => |keys| {
                 try out.append(@intFromEnum(ControlOpcode.RegisterKeys));
@@ -1259,7 +1259,7 @@ pub const GoweCodec = struct {
                     };
                 }
                 if (!try self.state.shape_table.registerWithId(self.allocator, shape.shape_id, literals)) {
-                    return GoweError.InvalidData;
+                    return RecurramError.InvalidData;
                 }
                 try self.recordEncodeShapeObservation(literals, 2);
             },
@@ -1291,8 +1291,8 @@ pub const GoweCodec = struct {
         }
     }
 
-    fn readControl(self: *GoweCodec, reader: *Reader) !ControlMessage {
-        const op = ControlOpcode.fromByte(try reader.readU8()) orelse return GoweError.InvalidData;
+    fn readControl(self: *RecurramCodec, reader: *Reader) !ControlMessage {
+        const op = ControlOpcode.fromByte(try reader.readU8()) orelse return RecurramError.InvalidData;
         return switch (op) {
             .RegisterKeys => blk: {
                 const len = try readCount(reader);
@@ -1319,7 +1319,7 @@ pub const GoweCodec = struct {
                     };
                 }
                 if (!try self.state.shape_table.registerWithId(self.allocator, shape_id, key_views)) {
-                    return GoweError.InvalidData;
+                    return RecurramError.InvalidData;
                 }
                 break :blk .{ .RegisterShape = .{ .shape_id = shape_id, .keys = key_refs } };
             },
@@ -1358,7 +1358,7 @@ pub const GoweCodec = struct {
         };
     }
 
-    fn writeStringVector(self: *GoweCodec, values: []const []const u8, codec_value: VectorCodec, out: *std.array_list.Managed(u8)) !void {
+    fn writeStringVector(self: *RecurramCodec, values: []const []const u8, codec_value: VectorCodec, out: *std.array_list.Managed(u8)) !void {
         _ = self;
         switch (codec_value) {
             .Dictionary, .StringRef => {
@@ -1413,7 +1413,7 @@ pub const GoweCodec = struct {
         }
     }
 
-    fn readStringVector(self: *GoweCodec, reader: *Reader, codec_value: VectorCodec) ![][]u8 {
+    fn readStringVector(self: *RecurramCodec, reader: *Reader, codec_value: VectorCodec) ![][]u8 {
         return switch (codec_value) {
             .Dictionary, .StringRef => blk: {
                 const dict_len = try readCount(reader);
@@ -1430,8 +1430,8 @@ pub const GoweCodec = struct {
                 errdefer self.allocator.free(values);
                 for (values) |*value| {
                     const id_u64 = try reader.readVaruint();
-                    const id = std.math.cast(usize, id_u64) orelse return GoweError.InvalidData;
-                    if (id >= dict.len) return GoweError.InvalidData;
+                    const id = std.math.cast(usize, id_u64) orelse return RecurramError.InvalidData;
+                    if (id >= dict.len) return RecurramError.InvalidData;
                     value.* = try self.allocator.dupe(u8, dict[id]);
                 }
                 break :blk values;
@@ -1445,12 +1445,12 @@ pub const GoweCodec = struct {
                 var idx: usize = 1;
                 while (idx < len) : (idx += 1) {
                     const prefix_len_u64 = try reader.readVaruint();
-                    const prefix_len = std.math.cast(usize, prefix_len_u64) orelse return GoweError.InvalidData;
+                    const prefix_len = std.math.cast(usize, prefix_len_u64) orelse return RecurramError.InvalidData;
                     const suffix = try reader.readString(self.allocator);
                     defer self.allocator.free(suffix);
                     const prev = values[idx - 1];
                     if (prefix_len > prev.len or !std.unicode.utf8ValidateSlice(prev[0..prefix_len])) {
-                        return GoweError.InvalidData;
+                        return RecurramError.InvalidData;
                     }
                     values[idx] = try self.allocator.alloc(u8, prefix_len + suffix.len);
                     std.mem.copyForwards(u8, values[idx][0..prefix_len], prev[0..prefix_len]);
@@ -1470,7 +1470,7 @@ pub const GoweCodec = struct {
         };
     }
 
-    fn bestPrefixBase(self: *GoweCodec, value: []const u8) !?PrefixBase {
+    fn bestPrefixBase(self: *RecurramCodec, value: []const u8) !?PrefixBase {
         var best: ?PrefixBase = null;
         for (self.state.string_table.by_id.items, 0..) |candidate, idx| {
             const prefix_len = commonPrefixLen(value, candidate);
@@ -1490,7 +1490,7 @@ pub const GoweCodec = struct {
         return best;
     }
 
-    fn recordEncodeShapeObservation(self: *GoweCodec, keys: []const []const u8, count: u64) !void {
+    fn recordEncodeShapeObservation(self: *RecurramCodec, keys: []const []const u8, count: u64) !void {
         const fingerprint = try shapeFingerprintOwned(self.allocator, keys);
         errdefer self.allocator.free(fingerprint);
         if (self.state.encode_shape_observations.getPtr(fingerprint)) |existing| {
@@ -1502,10 +1502,10 @@ pub const GoweCodec = struct {
 };
 
 pub const SessionEncoder = struct {
-    codec: GoweCodec,
+    codec: RecurramCodec,
 
     pub fn init(allocator: Allocator, options: SessionOptions) SessionEncoder {
-        return .{ .codec = GoweCodec.init(allocator, options) };
+        return .{ .codec = RecurramCodec.init(allocator, options) };
     }
 
     pub fn deinit(self: *SessionEncoder) void {
@@ -1545,7 +1545,7 @@ pub const SessionEncoder = struct {
                 } else if (field.default_value) |default_value| {
                     try fields.append(try default_value.clone(self.codec.allocator));
                 } else {
-                    return GoweError.InvalidData;
+                    return RecurramError.InvalidData;
                 }
             } else {
                 has_optional = true;
@@ -1786,7 +1786,7 @@ fn typedVectorToValue(vector: TypedVector, allocator: Allocator) !Value {
     };
 }
 
-fn entriesToMap(entries: []const MapEntry, codec_state: *const GoweCodec) ![]ValueMapEntry {
+fn entriesToMap(entries: []const MapEntry, codec_state: *const RecurramCodec) ![]ValueMapEntry {
     const out = try codec_state.allocator.alloc(ValueMapEntry, entries.len);
     for (entries, 0..) |entry, idx| {
         const key = switch (entry.key) {
@@ -1839,7 +1839,7 @@ fn schemaPresentFieldIndices(schema: Schema, presence: ?[]const bool, allocator:
         if (!field.required) optional_total += 1;
     }
     if (presence) |bits| {
-        if (bits.len != optional_total) return GoweError.InvalidData;
+        if (bits.len != optional_total) return RecurramError.InvalidData;
     }
 
     var indices = std.array_list.Managed(usize).init(allocator);
@@ -1887,16 +1887,16 @@ fn fieldI64Range(field: model.SchemaField) ?struct { min: i64, max: i64 } {
 
 fn readCount(reader: *Reader) !usize {
     const value = try reader.readVaruint();
-    return std.math.cast(usize, value) orelse GoweError.InvalidData;
+    return std.math.cast(usize, value) orelse RecurramError.InvalidData;
 }
 
 fn writeFixedBitsU64(value: u64, bits: u8, out: *std.array_list.Managed(u8)) !void {
-    if (bits > 64) return GoweError.InvalidData;
+    if (bits > 64) return RecurramError.InvalidData;
     if (bits == 0) {
-        if (value != 0) return GoweError.InvalidData;
+        if (value != 0) return RecurramError.InvalidData;
         return;
     }
-    if (bits < 64 and (value >> @as(u6, @intCast(bits))) != 0) return GoweError.InvalidData;
+    if (bits < 64 and (value >> @as(u6, @intCast(bits))) != 0) return RecurramError.InvalidData;
     const byte_len = std.math.divCeil(usize, bits, 8) catch unreachable;
     var idx: usize = 0;
     while (idx < byte_len) : (idx += 1) {
@@ -1905,7 +1905,7 @@ fn writeFixedBitsU64(value: u64, bits: u8, out: *std.array_list.Managed(u8)) !vo
 }
 
 fn readFixedBitsU64(reader: *Reader, bits: u8) !u64 {
-    if (bits > 64) return GoweError.InvalidData;
+    if (bits > 64) return RecurramError.InvalidData;
     if (bits == 0) return 0;
     const byte_len = std.math.divCeil(usize, bits, 8) catch unreachable;
     var value: u64 = 0;
@@ -1915,7 +1915,7 @@ fn readFixedBitsU64(reader: *Reader, bits: u8) !u64 {
     }
     if (bits < 64) {
         const mask = (@as(u64, 1) << @as(u6, @intCast(bits))) - 1;
-        if ((value & ~mask) != 0) return GoweError.InvalidData;
+        if ((value & ~mask) != 0) return RecurramError.InvalidData;
     }
     return value;
 }
@@ -1954,7 +1954,7 @@ fn readSmallestU64(reader: *Reader) !u64 {
             const bytes = try reader.readExact(8);
             break :blk std.mem.bytesToValue(u64, bytes[0..8]);
         },
-        else => GoweError.InvalidData,
+        else => RecurramError.InvalidData,
     };
 }
 
@@ -2009,7 +2009,7 @@ fn indexOfString(values: []const []const u8, target: []const u8) ?u64 {
     return null;
 }
 
-fn putFieldEnum(codec_state: *GoweCodec, field_identity: []const u8, values: []const []const u8) !void {
+fn putFieldEnum(codec_state: *RecurramCodec, field_identity: []const u8, values: []const []const u8) !void {
     const identity = try codec_state.allocator.dupe(u8, field_identity);
     errdefer codec_state.allocator.free(identity);
     const copied_values = try codec_state.allocator.alloc([]u8, values.len);
@@ -2451,7 +2451,7 @@ const TemplateColumnDiff = struct {
     columns: []Column,
 };
 
-fn writeBaseRef(self: *GoweCodec, base_ref: BaseRef, out: *std.array_list.Managed(u8)) !void {
+fn writeBaseRef(self: *RecurramCodec, base_ref: BaseRef, out: *std.array_list.Managed(u8)) !void {
     _ = self;
     switch (base_ref) {
         .Previous => try out.append(0),
@@ -2462,16 +2462,16 @@ fn writeBaseRef(self: *GoweCodec, base_ref: BaseRef, out: *std.array_list.Manage
     }
 }
 
-fn readBaseRef(self: *GoweCodec, reader: *Reader) !BaseRef {
+fn readBaseRef(self: *RecurramCodec, reader: *Reader) !BaseRef {
     _ = self;
     return switch (try reader.readU8()) {
         0 => .{ .Previous = {} },
         1 => .{ .BaseId = try reader.readVaruint() },
-        else => GoweError.InvalidData,
+        else => RecurramError.InvalidData,
     };
 }
 
-fn writeControlStreamPayload(self: *GoweCodec, stream_codec: ControlStreamCodec, payload: []const u8, out: *std.array_list.Managed(u8)) !void {
+fn writeControlStreamPayload(self: *RecurramCodec, stream_codec: ControlStreamCodec, payload: []const u8, out: *std.array_list.Managed(u8)) !void {
     _ = self;
     const framed = switch (stream_codec) {
         .Plain => try controlPlainEncode(payload, out.allocator),
@@ -2484,7 +2484,7 @@ fn writeControlStreamPayload(self: *GoweCodec, stream_codec: ControlStreamCodec,
     try wire.encodeBytes(framed, out);
 }
 
-fn readControlStreamPayload(self: *GoweCodec, stream_codec: ControlStreamCodec, reader: *Reader) ![]u8 {
+fn readControlStreamPayload(self: *RecurramCodec, stream_codec: ControlStreamCodec, reader: *Reader) ![]u8 {
     const framed = try reader.readBytes(self.allocator);
     defer self.allocator.free(framed);
     return switch (stream_codec) {
@@ -2505,8 +2505,8 @@ fn controlPlainEncode(payload: []const u8, allocator: Allocator) ![]u8 {
 }
 
 fn controlPlainDecode(framed: []const u8, allocator: Allocator) ![]u8 {
-    if (framed.len == 0) return GoweError.InvalidData;
-    if (framed[0] != 0) return GoweError.InvalidData;
+    if (framed.len == 0) return RecurramError.InvalidData;
+    if (framed[0] != 0) return RecurramError.InvalidData;
     return allocator.dupe(u8, framed[1..]);
 }
 
@@ -2545,11 +2545,11 @@ fn controlRleEncode(payload: []const u8, allocator: Allocator) ![]u8 {
 }
 
 fn controlRleDecode(framed: []const u8, allocator: Allocator) ![]u8 {
-    if (framed.len == 0) return GoweError.InvalidData;
+    if (framed.len == 0) return RecurramError.InvalidData;
     if (framed[0] == 0) {
         return allocator.dupe(u8, framed[1..]);
     }
-    if (framed[0] != 1) return GoweError.InvalidData;
+    if (framed[0] != 1) return RecurramError.InvalidData;
 
     var reader = Reader.init(framed[1..]);
     const run_count = try readCount(&reader);
@@ -2565,7 +2565,7 @@ fn controlRleDecode(framed: []const u8, allocator: Allocator) ![]u8 {
             out.appendAssumeCapacity(byte);
         }
     }
-    if (!reader.isEof()) return GoweError.InvalidData;
+    if (!reader.isEof()) return RecurramError.InvalidData;
     return out.toOwnedSlice();
 }
 
@@ -2608,7 +2608,7 @@ fn controlBitpackEncode(payload: []const u8, allocator: Allocator) ![]u8 {
 }
 
 fn controlBitpackDecode(framed: []const u8, allocator: Allocator) ![]u8 {
-    if (framed.len == 0) return GoweError.InvalidData;
+    if (framed.len == 0) return RecurramError.InvalidData;
     var reader = Reader.init(framed);
     const mode = try reader.readU8();
     return switch (mode) {
@@ -2618,7 +2618,7 @@ fn controlBitpackDecode(framed: []const u8, allocator: Allocator) ![]u8 {
             const remaining = framed[reader.position()..];
             break :blk try unpackFixedWidthU8(remaining, len, mode, allocator);
         },
-        else => GoweError.InvalidData,
+        else => RecurramError.InvalidData,
     };
 }
 
@@ -2627,7 +2627,7 @@ fn controlHuffmanEncode(payload: []const u8, allocator: Allocator) ![]u8 {
 }
 
 fn controlHuffmanDecode(framed: []const u8, allocator: Allocator) ![]u8 {
-    if (framed.len == 0) return GoweError.InvalidData;
+    if (framed.len == 0) return RecurramError.InvalidData;
     var reader = Reader.init(framed);
     const mode = try reader.readU8();
     return switch (mode) {
@@ -2640,13 +2640,13 @@ fn controlHuffmanDecode(framed: []const u8, allocator: Allocator) ![]u8 {
             while (idx < used) : (idx += 1) {
                 const symbol = try reader.readU8();
                 const freq_u64 = try reader.readVaruint();
-                const freq = std.math.cast(u32, freq_u64) orelse return GoweError.InvalidData;
+                const freq = std.math.cast(u32, freq_u64) orelse return RecurramError.InvalidData;
                 freqs[symbol] = freq;
-                total = std.math.add(usize, total, freq) catch return GoweError.InvalidData;
+                total = std.math.add(usize, total, freq) catch return RecurramError.InvalidData;
             }
             if (total == 0) break :blk try allocator.alloc(u8, 0);
 
-            const tree = (try buildHuffmanTree(&freqs, allocator)) orelse return GoweError.InvalidData;
+            const tree = (try buildHuffmanTree(&freqs, allocator)) orelse return RecurramError.InvalidData;
             defer allocator.free(tree.nodes);
 
             if (tree.nodes[tree.root] == .Leaf) {
@@ -2673,7 +2673,7 @@ fn controlHuffmanDecode(framed: []const u8, allocator: Allocator) ![]u8 {
                             break;
                         },
                         .Internal => |edge| {
-                            if (byte_idx >= bitstream.len) return GoweError.InvalidData;
+                            if (byte_idx >= bitstream.len) return RecurramError.InvalidData;
                             const byte = bitstream[byte_idx];
                             const bit = (byte >> @as(u3, @intCast(bit_idx))) & 1;
                             bit_idx += 1;
@@ -2690,15 +2690,15 @@ fn controlHuffmanDecode(framed: []const u8, allocator: Allocator) ![]u8 {
             if (bit_idx > 0 and byte_idx < bitstream.len) {
                 const lower_mask: u8 = (@as(u8, 1) << @as(u3, @intCast(bit_idx))) - 1;
                 const trailing_mask: u8 = ~lower_mask;
-                if ((bitstream[byte_idx] & trailing_mask) != 0) return GoweError.InvalidData;
+                if ((bitstream[byte_idx] & trailing_mask) != 0) return RecurramError.InvalidData;
                 byte_idx += 1;
             }
             for (bitstream[byte_idx..]) |byte| {
-                if (byte != 0) return GoweError.InvalidData;
+                if (byte != 0) return RecurramError.InvalidData;
             }
             break :blk out.toOwnedSlice();
         },
-        else => GoweError.InvalidData,
+        else => RecurramError.InvalidData,
     };
 }
 
@@ -2707,7 +2707,7 @@ fn controlFseEncode(payload: []const u8, allocator: Allocator) ![]u8 {
 }
 
 fn controlFseDecode(framed: []const u8, allocator: Allocator) ![]u8 {
-    if (framed.len == 0) return GoweError.InvalidData;
+    if (framed.len == 0) return RecurramError.InvalidData;
     var reader = Reader.init(framed);
     const mode = try reader.readU8();
     const body = framed[reader.position()..];
@@ -2716,7 +2716,7 @@ fn controlFseDecode(framed: []const u8, allocator: Allocator) ![]u8 {
         1 => controlBitpackDecode(body, allocator),
         2 => controlHuffmanDecode(body, allocator),
         3 => controlFseFrameDecode(body, allocator),
-        else => GoweError.InvalidData,
+        else => RecurramError.InvalidData,
     };
 }
 
@@ -2803,12 +2803,12 @@ fn buildHuffmanTree(freqs: *const [256]u32, allocator: Allocator) !?HuffBuildRes
 fn controlFseFrameDecode(input: []const u8, allocator: Allocator) ![]u8 {
     var reader = Reader.init(input);
     const table_log = try reader.readU8();
-    if (table_log == 0 or table_log > 12) return GoweError.InvalidData;
+    if (table_log == 0 or table_log > 12) return RecurramError.InvalidData;
 
     const table_size: u32 = @as(u32, 1) << @as(u5, @intCast(table_log));
     const len = try readCount(&reader);
     const used = try readCount(&reader);
-    if (used > 256 or used > table_size) return GoweError.InvalidData;
+    if (used > 256 or used > table_size) return RecurramError.InvalidData;
 
     var freqs = [_]u16{0} ** 256;
     var seen = [_]bool{false} ** 256;
@@ -2816,25 +2816,25 @@ fn controlFseFrameDecode(input: []const u8, allocator: Allocator) ![]u8 {
     var idx: usize = 0;
     while (idx < used) : (idx += 1) {
         const symbol = try reader.readU8();
-        if (seen[symbol]) return GoweError.InvalidData;
+        if (seen[symbol]) return RecurramError.InvalidData;
         seen[symbol] = true;
 
         const freq_u64 = try reader.readVaruint();
-        if (freq_u64 == 0 or freq_u64 > table_size) return GoweError.InvalidData;
-        const freq = std.math.cast(u16, freq_u64) orelse return GoweError.InvalidData;
+        if (freq_u64 == 0 or freq_u64 > table_size) return RecurramError.InvalidData;
+        const freq = std.math.cast(u16, freq_u64) orelse return RecurramError.InvalidData;
         freqs[symbol] = freq;
-        sum = std.math.add(u32, sum, freq) catch return GoweError.InvalidData;
+        sum = std.math.add(u32, sum, freq) catch return RecurramError.InvalidData;
     }
-    if (sum != table_size) return GoweError.InvalidData;
+    if (sum != table_size) return RecurramError.InvalidData;
 
     var cumul = [_]u32{0} ** 256;
     var running: u32 = 0;
     for (freqs, 0..) |freq, symbol_idx| {
         cumul[symbol_idx] = running;
-        running = std.math.add(u32, running, freq) catch return GoweError.InvalidData;
+        running = std.math.add(u32, running, freq) catch return RecurramError.InvalidData;
     }
 
-    const table_len = std.math.cast(usize, table_size) orelse return GoweError.InvalidData;
+    const table_len = std.math.cast(usize, table_size) orelse return RecurramError.InvalidData;
     const decode_table = try allocator.alloc(u8, table_len);
     defer allocator.free(decode_table);
     for (freqs, 0..) |freq, symbol_idx| {
@@ -2848,7 +2848,7 @@ fn controlFseFrameDecode(input: []const u8, allocator: Allocator) ![]u8 {
     }
 
     const state_u64 = try reader.readVaruint();
-    if (state_u64 > std.math.maxInt(u32)) return GoweError.InvalidData;
+    if (state_u64 > std.math.maxInt(u32)) return RecurramError.InvalidData;
     var state: u32 = @intCast(state_u64);
 
     const renorm = input[reader.position()..];
@@ -2861,39 +2861,39 @@ fn controlFseFrameDecode(input: []const u8, allocator: Allocator) ![]u8 {
 
     var produced: usize = 0;
     while (produced < len) : (produced += 1) {
-        const slot = std.math.cast(usize, state & mask) orelse return GoweError.InvalidData;
-        if (slot >= decode_table.len) return GoweError.InvalidData;
+        const slot = std.math.cast(usize, state & mask) orelse return RecurramError.InvalidData;
+        if (slot >= decode_table.len) return RecurramError.InvalidData;
         const symbol = decode_table[slot];
         out.appendAssumeCapacity(symbol);
 
         const freq = @as(u32, freqs[symbol]);
-        if (freq == 0) return GoweError.InvalidData;
+        if (freq == 0) return RecurramError.InvalidData;
         const start = cumul[symbol];
         const low = state & mask;
-        if (low < start) return GoweError.InvalidData;
+        if (low < start) return RecurramError.InvalidData;
         const delta = low - start;
-        const base = std.math.mul(u32, freq, state >> @as(u5, @intCast(table_log))) catch return GoweError.InvalidData;
-        state = std.math.add(u32, base, delta) catch return GoweError.InvalidData;
+        const base = std.math.mul(u32, freq, state >> @as(u5, @intCast(table_log))) catch return RecurramError.InvalidData;
+        state = std.math.add(u32, base, delta) catch return RecurramError.InvalidData;
 
         while (state < FSE_STATE_LOWER_BOUND) {
-            if (renorm_idx == 0) return GoweError.InvalidData;
+            if (renorm_idx == 0) return RecurramError.InvalidData;
             renorm_idx -= 1;
             state = (state << 8) | renorm[renorm_idx];
         }
     }
 
     for (renorm[0..renorm_idx]) |byte| {
-        if (byte != 0) return GoweError.InvalidData;
+        if (byte != 0) return RecurramError.InvalidData;
     }
     return out.toOwnedSlice();
 }
 
 fn packFixedWidthU8(values: []const u8, width: u8, out: *std.array_list.Managed(u8)) !void {
-    if (width == 0 or width > 8) return GoweError.InvalidData;
+    if (width == 0 or width > 8) return RecurramError.InvalidData;
     var acc: u64 = 0;
     var acc_bits: u8 = 0;
     for (values) |value| {
-        if ((value >> @as(u3, @intCast(width))) != 0) return GoweError.InvalidData;
+        if ((value >> @as(u3, @intCast(width))) != 0) return RecurramError.InvalidData;
         acc |= (@as(u64, value) << @as(u6, @intCast(acc_bits)));
         acc_bits += width;
         while (acc_bits >= 8) {
@@ -2908,7 +2908,7 @@ fn packFixedWidthU8(values: []const u8, width: u8, out: *std.array_list.Managed(
 }
 
 fn unpackFixedWidthU8(bytes: []const u8, len: usize, width: u8, allocator: Allocator) ![]u8 {
-    if (width == 0 or width > 8) return GoweError.InvalidData;
+    if (width == 0 or width > 8) return RecurramError.InvalidData;
     const out = try allocator.alloc(u8, len);
     errdefer allocator.free(out);
     var acc: u64 = 0;
@@ -2916,7 +2916,7 @@ fn unpackFixedWidthU8(bytes: []const u8, len: usize, width: u8, allocator: Alloc
     var idx: usize = 0;
     for (out) |*slot| {
         while (acc_bits < width) {
-            if (idx >= bytes.len) return GoweError.InvalidData;
+            if (idx >= bytes.len) return RecurramError.InvalidData;
             acc |= (@as(u64, bytes[idx]) << @as(u6, @intCast(acc_bits)));
             idx += 1;
             acc_bits += 8;
@@ -2930,17 +2930,17 @@ fn unpackFixedWidthU8(bytes: []const u8, len: usize, width: u8, allocator: Alloc
 }
 
 fn packFixedWidthU64(values: []const u64, width: u8, out: *std.array_list.Managed(u8)) !void {
-    if (width > 64) return GoweError.InvalidData;
+    if (width > 64) return RecurramError.InvalidData;
     if (width == 0) {
         for (values) |value| {
-            if (value != 0) return GoweError.InvalidData;
+            if (value != 0) return RecurramError.InvalidData;
         }
         return;
     }
     var acc: u128 = 0;
     var acc_bits: u8 = 0;
     for (values) |value| {
-        if (width < 64 and (value >> @as(u6, @intCast(width))) != 0) return GoweError.InvalidData;
+        if (width < 64 and (value >> @as(u6, @intCast(width))) != 0) return RecurramError.InvalidData;
         acc |= (@as(u128, value) << @as(std.math.Log2Int(u128), @intCast(acc_bits)));
         acc_bits += width;
         while (acc_bits >= 8) {
@@ -2955,7 +2955,7 @@ fn packFixedWidthU64(values: []const u64, width: u8, out: *std.array_list.Manage
 }
 
 fn unpackFixedWidthU64(bytes: []const u8, len: usize, width: u8, allocator: Allocator) ![]u64 {
-    if (width > 64) return GoweError.InvalidData;
+    if (width > 64) return RecurramError.InvalidData;
     const out = try allocator.alloc(u64, len);
     errdefer allocator.free(out);
     if (width == 0) {
@@ -2967,7 +2967,7 @@ fn unpackFixedWidthU64(bytes: []const u8, len: usize, width: u8, allocator: Allo
     var idx: usize = 0;
     for (out) |*slot| {
         while (acc_bits < width) {
-            if (idx >= bytes.len) return GoweError.InvalidData;
+            if (idx >= bytes.len) return RecurramError.InvalidData;
             acc |= (@as(u128, bytes[idx]) << @as(std.math.Log2Int(u128), @intCast(acc_bits)));
             idx += 1;
             acc_bits += 8;
@@ -3003,7 +3003,7 @@ fn supportsStatePatch(base: Message, current: Message) bool {
     };
 }
 
-fn applyStatePatch(self: *GoweCodec, base_ref: BaseRef, operations: []const PatchOperation, literals: []const Value) !?Message {
+fn applyStatePatch(self: *RecurramCodec, base_ref: BaseRef, operations: []const PatchOperation, literals: []const Value) !?Message {
     var base_owned: ?Message = null;
     defer if (base_owned) |*message| {
         message.deinit(self.allocator);
@@ -3028,14 +3028,14 @@ fn applyStatePatch(self: *GoweCodec, base_ref: BaseRef, operations: []const Patc
 
     var literal_idx: usize = 0;
     for (operations) |operation| {
-        const idx = std.math.cast(usize, operation.field_id) orelse return GoweError.InvalidData;
+        const idx = std.math.cast(usize, operation.field_id) orelse return RecurramError.InvalidData;
         switch (operation.opcode) {
             .Keep => {},
             .ReplaceScalar, .ReplaceVector, .StringRef, .PrefixDelta => {
                 const value = if (operation.value) |v|
                     try v.clone(self.allocator)
                 else blk: {
-                    if (literal_idx >= literals.len) return GoweError.InvalidData;
+                    if (literal_idx >= literals.len) return RecurramError.InvalidData;
                     const v = try literals[literal_idx].clone(self.allocator);
                     literal_idx += 1;
                     break :blk v;
@@ -3043,17 +3043,17 @@ fn applyStatePatch(self: *GoweCodec, base_ref: BaseRef, operations: []const Patc
                 if (idx >= fields.len) {
                     var doomed = value;
                     doomed.deinit(self.allocator);
-                    return GoweError.InvalidData;
+                    return RecurramError.InvalidData;
                 }
                 fields[idx].deinit(self.allocator);
                 fields[idx] = value;
             },
             .InsertField => {
-                if (idx > fields.len) return GoweError.InvalidData;
+                if (idx > fields.len) return RecurramError.InvalidData;
                 const value = if (operation.value) |v|
                     try v.clone(self.allocator)
                 else blk: {
-                    if (literal_idx >= literals.len) return GoweError.InvalidData;
+                    if (literal_idx >= literals.len) return RecurramError.InvalidData;
                     const v = try literals[literal_idx].clone(self.allocator);
                     literal_idx += 1;
                     break :blk v;
@@ -3061,7 +3061,7 @@ fn applyStatePatch(self: *GoweCodec, base_ref: BaseRef, operations: []const Patc
                 fields = try insertValue(fields, idx, value, self.allocator);
             },
             .DeleteField => {
-                if (idx >= fields.len) return GoweError.InvalidData;
+                if (idx >= fields.len) return RecurramError.InvalidData;
                 const removed = try removeValue(fields, idx, self.allocator);
                 var removed_value = removed.removed;
                 removed_value.deinit(self.allocator);
@@ -3071,13 +3071,13 @@ fn applyStatePatch(self: *GoweCodec, base_ref: BaseRef, operations: []const Patc
                 var value = if (operation.value) |v|
                     try v.clone(self.allocator)
                 else blk: {
-                    if (literal_idx >= literals.len) return GoweError.InvalidData;
+                    if (literal_idx >= literals.len) return RecurramError.InvalidData;
                     const v = try literals[literal_idx].clone(self.allocator);
                     literal_idx += 1;
                     break :blk v;
                 };
                 defer value.deinit(self.allocator);
-                if (idx >= fields.len or fields[idx] != .Array or value != .Array) return GoweError.InvalidData;
+                if (idx >= fields.len or fields[idx] != .Array or value != .Array) return RecurramError.InvalidData;
                 const appended = try appendValues(fields[idx].Array, value.Array, self.allocator);
                 fields[idx].deinit(self.allocator);
                 fields[idx] = .{ .Array = appended };
@@ -3086,18 +3086,18 @@ fn applyStatePatch(self: *GoweCodec, base_ref: BaseRef, operations: []const Patc
                 var value = if (operation.value) |v|
                     try v.clone(self.allocator)
                 else blk: {
-                    if (literal_idx >= literals.len) return GoweError.InvalidData;
+                    if (literal_idx >= literals.len) return RecurramError.InvalidData;
                     const v = try literals[literal_idx].clone(self.allocator);
                     literal_idx += 1;
                     break :blk v;
                 };
                 defer value.deinit(self.allocator);
                 const keep = switch (value) {
-                    .U64 => |v| std.math.cast(usize, v) orelse return GoweError.InvalidData,
-                    .I64 => |v| if (v >= 0) @as(usize, @intCast(v)) else return GoweError.InvalidData,
-                    else => return GoweError.InvalidData,
+                    .U64 => |v| std.math.cast(usize, v) orelse return RecurramError.InvalidData,
+                    .I64 => |v| if (v >= 0) @as(usize, @intCast(v)) else return RecurramError.InvalidData,
+                    else => return RecurramError.InvalidData,
                 };
-                if (idx >= fields.len or fields[idx] != .Array) return GoweError.InvalidData;
+                if (idx >= fields.len or fields[idx] != .Array) return RecurramError.InvalidData;
                 const original = fields[idx].Array;
                 const next_len = @min(keep, original.len);
                 const truncated = try cloneValues(original[0..next_len], self.allocator);
@@ -3121,14 +3121,14 @@ fn applyStatePatchMap(base_entries: []const MapEntry, operations: []const PatchO
 
     var literal_idx: usize = 0;
     for (operations) |operation| {
-        const idx = std.math.cast(usize, operation.field_id) orelse return GoweError.InvalidData;
+        const idx = std.math.cast(usize, operation.field_id) orelse return RecurramError.InvalidData;
         switch (operation.opcode) {
             .Keep => {},
             .ReplaceScalar, .ReplaceVector, .StringRef, .PrefixDelta => {
                 const value = if (operation.value) |v|
                     try v.clone(allocator)
                 else blk: {
-                    if (literal_idx >= literals.len) return GoweError.InvalidData;
+                    if (literal_idx >= literals.len) return RecurramError.InvalidData;
                     const v = try literals[literal_idx].clone(allocator);
                     literal_idx += 1;
                     break :blk v;
@@ -3136,17 +3136,17 @@ fn applyStatePatchMap(base_entries: []const MapEntry, operations: []const PatchO
                 if (idx >= entries.len) {
                     var doomed = value;
                     doomed.deinit(allocator);
-                    return GoweError.InvalidData;
+                    return RecurramError.InvalidData;
                 }
                 entries[idx].value.deinit(allocator);
                 entries[idx].value = value;
             },
             .InsertField => {
-                if (idx > entries.len) return GoweError.InvalidData;
+                if (idx > entries.len) return RecurramError.InvalidData;
                 const value = if (operation.value) |v|
                     try v.clone(allocator)
                 else blk: {
-                    if (literal_idx >= literals.len) return GoweError.InvalidData;
+                    if (literal_idx >= literals.len) return RecurramError.InvalidData;
                     const v = try literals[literal_idx].clone(allocator);
                     literal_idx += 1;
                     break :blk v;
@@ -3155,7 +3155,7 @@ fn applyStatePatchMap(base_entries: []const MapEntry, operations: []const PatchO
                 entries = try insertMapEntry(entries, idx, entry, allocator);
             },
             .DeleteField => {
-                if (idx >= entries.len) return GoweError.InvalidData;
+                if (idx >= entries.len) return RecurramError.InvalidData;
                 const removed = try removeMapEntry(entries, idx, allocator);
                 var removed_entry = removed.removed;
                 removed_entry.deinit(allocator);
@@ -3165,13 +3165,13 @@ fn applyStatePatchMap(base_entries: []const MapEntry, operations: []const PatchO
                 var value = if (operation.value) |v|
                     try v.clone(allocator)
                 else blk: {
-                    if (literal_idx >= literals.len) return GoweError.InvalidData;
+                    if (literal_idx >= literals.len) return RecurramError.InvalidData;
                     const v = try literals[literal_idx].clone(allocator);
                     literal_idx += 1;
                     break :blk v;
                 };
                 defer value.deinit(allocator);
-                if (idx >= entries.len or entries[idx].value != .Array or value != .Array) return GoweError.InvalidData;
+                if (idx >= entries.len or entries[idx].value != .Array or value != .Array) return RecurramError.InvalidData;
                 const appended = try appendValues(entries[idx].value.Array, value.Array, allocator);
                 entries[idx].value.deinit(allocator);
                 entries[idx].value = .{ .Array = appended };
@@ -3180,18 +3180,18 @@ fn applyStatePatchMap(base_entries: []const MapEntry, operations: []const PatchO
                 var value = if (operation.value) |v|
                     try v.clone(allocator)
                 else blk: {
-                    if (literal_idx >= literals.len) return GoweError.InvalidData;
+                    if (literal_idx >= literals.len) return RecurramError.InvalidData;
                     const v = try literals[literal_idx].clone(allocator);
                     literal_idx += 1;
                     break :blk v;
                 };
                 defer value.deinit(allocator);
                 const keep = switch (value) {
-                    .U64 => |v| std.math.cast(usize, v) orelse return GoweError.InvalidData,
-                    .I64 => |v| if (v >= 0) @as(usize, @intCast(v)) else return GoweError.InvalidData,
-                    else => return GoweError.InvalidData,
+                    .U64 => |v| std.math.cast(usize, v) orelse return RecurramError.InvalidData,
+                    .I64 => |v| if (v >= 0) @as(usize, @intCast(v)) else return RecurramError.InvalidData,
+                    else => return RecurramError.InvalidData,
                 };
-                if (idx >= entries.len or entries[idx].value != .Array) return GoweError.InvalidData;
+                if (idx >= entries.len or entries[idx].value != .Array) return RecurramError.InvalidData;
                 const original = entries[idx].value.Array;
                 const next_len = @min(keep, original.len);
                 const truncated = try cloneValues(original[0..next_len], allocator);
@@ -3208,11 +3208,11 @@ fn mapEntryFromPatchValue(value: Value, allocator: Allocator) !MapEntry {
     var map_value = value;
     if (map_value != .Map) {
         map_value.deinit(allocator);
-        return GoweError.InvalidData;
+        return RecurramError.InvalidData;
     }
     if (map_value.Map.len != 1) {
         map_value.deinit(allocator);
-        return GoweError.InvalidData;
+        return RecurramError.InvalidData;
     }
     const map_entry = map_value.Map[0];
     allocator.free(map_value.Map);
@@ -3288,7 +3288,7 @@ fn rebuildMessageLike(base: Message, fields: []const Value, allocator: Allocator
         },
         .Array => .{ .Array = try cloneValues(fields, allocator) },
         .Map => |entries| blk: {
-            if (fields.len != entries.len) return GoweError.InvalidData;
+            if (fields.len != entries.len) return RecurramError.InvalidData;
             const out = try allocator.alloc(MapEntry, entries.len);
             for (entries, 0..) |entry, idx| {
                 out[idx] = .{
@@ -3315,7 +3315,7 @@ fn rebuildMessageLike(base: Message, fields: []const Value, allocator: Allocator
                     for (fields, 0..) |field, idx| {
                         if (field != .Bool) {
                             allocator.free(out);
-                            return GoweError.InvalidData;
+                            return RecurramError.InvalidData;
                         }
                         out[idx] = field.Bool;
                     }
@@ -3326,7 +3326,7 @@ fn rebuildMessageLike(base: Message, fields: []const Value, allocator: Allocator
                     for (fields, 0..) |field, idx| {
                         if (field != .I64) {
                             allocator.free(out);
-                            return GoweError.InvalidData;
+                            return RecurramError.InvalidData;
                         }
                         out[idx] = field.I64;
                     }
@@ -3337,7 +3337,7 @@ fn rebuildMessageLike(base: Message, fields: []const Value, allocator: Allocator
                     for (fields, 0..) |field, idx| {
                         if (field != .U64) {
                             allocator.free(out);
-                            return GoweError.InvalidData;
+                            return RecurramError.InvalidData;
                         }
                         out[idx] = field.U64;
                     }
@@ -3348,7 +3348,7 @@ fn rebuildMessageLike(base: Message, fields: []const Value, allocator: Allocator
                     for (fields, 0..) |field, idx| {
                         if (field != .F64) {
                             allocator.free(out);
-                            return GoweError.InvalidData;
+                            return RecurramError.InvalidData;
                         }
                         out[idx] = field.F64;
                     }
@@ -3360,7 +3360,7 @@ fn rebuildMessageLike(base: Message, fields: []const Value, allocator: Allocator
                         if (field != .String) {
                             for (out[0..idx]) |value| allocator.free(value);
                             allocator.free(out);
-                            return GoweError.InvalidData;
+                            return RecurramError.InvalidData;
                         }
                         out[idx] = try allocator.dupe(u8, field.String);
                     }
@@ -3372,7 +3372,7 @@ fn rebuildMessageLike(base: Message, fields: []const Value, allocator: Allocator
                         if (field != .Binary) {
                             for (out[0..idx]) |value| allocator.free(value);
                             allocator.free(out);
-                            return GoweError.InvalidData;
+                            return RecurramError.InvalidData;
                         }
                         out[idx] = try allocator.dupe(u8, field.Binary);
                     }
@@ -3440,7 +3440,7 @@ fn diffMessage(prev: Message, current: Message, allocator: Allocator) !PatchDiff
 }
 
 fn encodedSize(message: Message, allocator: Allocator) !usize {
-    var temp = GoweCodec.init(allocator, .{});
+    var temp = RecurramCodec.init(allocator, .{});
     defer temp.deinit();
     const bytes = try temp.encodeMessage(&message);
     defer allocator.free(bytes);
@@ -3552,19 +3552,19 @@ fn mergeTemplateColumns(previous: []const Column, changed_mask: []const bool, ch
     errdefer allocator.free(out);
     for (changed_mask, 0..) |changed, idx| {
         if (changed) {
-            if (changed_idx >= changed_columns.len) return GoweError.InvalidData;
+            if (changed_idx >= changed_columns.len) return RecurramError.InvalidData;
             out[idx] = try changed_columns[changed_idx].clone(allocator);
             changed_idx += 1;
         } else {
-            if (idx >= previous.len) return GoweError.InvalidData;
+            if (idx >= previous.len) return RecurramError.InvalidData;
             out[idx] = try previous[idx].clone(allocator);
         }
     }
-    if (changed_idx != changed_columns.len) return GoweError.InvalidData;
+    if (changed_idx != changed_columns.len) return RecurramError.InvalidData;
     return out;
 }
 
-fn putTemplateDescriptor(codec_state: *GoweCodec, descriptor: TemplateDescriptor) !void {
+fn putTemplateDescriptor(codec_state: *RecurramCodec, descriptor: TemplateDescriptor) !void {
     if (codec_state.state.templates.getPtr(descriptor.template_id)) |existing| {
         existing.deinit(codec_state.allocator);
         existing.* = descriptor;
@@ -3573,7 +3573,7 @@ fn putTemplateDescriptor(codec_state: *GoweCodec, descriptor: TemplateDescriptor
     try codec_state.state.templates.put(codec_state.allocator, descriptor.template_id, descriptor);
 }
 
-fn putTemplateColumns(codec_state: *GoweCodec, template_id: u64, columns: []const Column) !void {
+fn putTemplateColumns(codec_state: *RecurramCodec, template_id: u64, columns: []const Column) !void {
     const cloned = try cloneColumns(columns, codec_state.allocator);
     errdefer {
         for (cloned) |*column| {

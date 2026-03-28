@@ -31,8 +31,8 @@ fn main() -> Result<(), String> {
         .read_to_string(&mut input)
         .map_err(|e| format!("failed to read stdin: {e}"))?;
 
-    let mut codec_stream = gowe::GoweCodec::default();
-    let mut session_stream = gowe::GoweCodec::default();
+    let mut codec_stream = recurram::RecurramCodec::default();
+    let mut session_stream = recurram::RecurramCodec::default();
     let mut count = 0usize;
 
     for (line_no, raw_line) in input.lines().enumerate() {

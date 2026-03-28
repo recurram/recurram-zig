@@ -1,6 +1,6 @@
 # SPEC Test Traceability (current Zig coverage)
 
-This file maps implemented `gowe/SPEC.md` behaviors to Zig tests in `gowe-zig/tests/main.zig`.
+This file maps implemented `recurram/SPEC.md` behaviors to Zig tests in `recurram-zig/tests/main.zig`.
 
 ## 5. Dynamic Profile
 
@@ -36,16 +36,16 @@ This file maps implemented `gowe/SPEC.md` behaviors to Zig tests in `gowe-zig/te
 
 ## 13. Batch / Stateful Extensions
 
-| SPEC section               | Requirement (short)                                      | Tests                                                                                                                                                |
-| -------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 13.1 ROW_BATCH             | Small batch uses row batch                               | `batch threshold selects row vs column`                                                                                                              |
-| 13.2 COLUMN_BATCH          | Large batch uses column batch                            | `batch threshold selects row vs column`                                                                                                              |
-| 13.5.1 session state       | Unknown reference policy branch behavior                 | `unknown key reference honors policies`, `unknown base id honors stateless retry policy`                                                            |
-| 13.5.2 BASE_SNAPSHOT       | Base snapshot message roundtrip and registration         | `base snapshot roundtrips and registers by id`                                                                                                       |
-| 13.5.3 STATE_PATCH         | Patch message decode and map insert/delete reconstruction | `state patch uses recommended ratio threshold`, `state patch map insert and delete reconstructs previous message`                                   |
-| 13.5.5 TEMPLATE_BATCH      | Micro-batch template reuse and changed-column mask       | `micro batch reuses template and emits changed mask`                                                                                                 |
-| 13.5.6 CONTROL_STREAM      | Control stream codec roundtrip and framing behavior      | `control stream roundtrips for all declared codecs`, `control stream bitpack compacts repetitive payloads`, `control stream fse falls back to plain frame mode` |
-| 13.5.8 RESET_STATE         | Reset clears shape resolution                            | `reset state clears shape resolution`                                                                                                                |
+| SPEC section          | Requirement (short)                                       | Tests                                                                                                                                                           |
+| --------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 13.1 ROW_BATCH        | Small batch uses row batch                                | `batch threshold selects row vs column`                                                                                                                         |
+| 13.2 COLUMN_BATCH     | Large batch uses column batch                             | `batch threshold selects row vs column`                                                                                                                         |
+| 13.5.1 session state  | Unknown reference policy branch behavior                  | `unknown key reference honors policies`, `unknown base id honors stateless retry policy`                                                                        |
+| 13.5.2 BASE_SNAPSHOT  | Base snapshot message roundtrip and registration          | `base snapshot roundtrips and registers by id`                                                                                                                  |
+| 13.5.3 STATE_PATCH    | Patch message decode and map insert/delete reconstruction | `state patch uses recommended ratio threshold`, `state patch map insert and delete reconstructs previous message`                                               |
+| 13.5.5 TEMPLATE_BATCH | Micro-batch template reuse and changed-column mask        | `micro batch reuses template and emits changed mask`                                                                                                            |
+| 13.5.6 CONTROL_STREAM | Control stream codec roundtrip and framing behavior       | `control stream roundtrips for all declared codecs`, `control stream bitpack compacts repetitive payloads`, `control stream fse falls back to plain frame mode` |
+| 13.5.8 RESET_STATE    | Reset clears shape resolution                             | `reset state clears shape resolution`                                                                                                                           |
 
 ## 18. Encoder Auto-Selection Rules
 
