@@ -1,6 +1,6 @@
 .{
     .name = .recurram,
-    .version = "0.1.0",
+    .version = "2.0.0",
     .fingerprint = 0x342daba75478317d,
     .minimum_zig_version = "0.15.0",
     .dependencies = .{},

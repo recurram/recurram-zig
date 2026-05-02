@@ -3,6 +3,7 @@ pub const errors = @import("error.zig");
 pub const model = @import("model.zig");
 pub const protocol = @import("protocol.zig");
 pub const session = @import("session.zig");
+pub const v2 = @import("v2.zig");
 pub const wire = @import("wire.zig");
 
 const std = @import("std");
@@ -17,15 +18,11 @@ pub const SessionOptions = session.SessionOptions;
 pub const UnknownReferencePolicy = session.UnknownReferencePolicy;
 
 pub fn encode(allocator: std.mem.Allocator, value: *const Value) ![]u8 {
-    var c = RecurramCodec.init(allocator, .{});
-    defer c.deinit();
-    return c.encodeValue(value);
+    return v2.encode(allocator, value);
 }
 
 pub fn decode(allocator: std.mem.Allocator, bytes: []const u8) !Value {
-    var c = RecurramCodec.init(allocator, .{});
-    defer c.deinit();
-    return c.decodeValue(bytes);
+    return v2.decode(allocator, bytes);
 }
 
 pub fn encodeWithSchema(allocator: std.mem.Allocator, schema: Schema, value: *const Value) ![]u8 {

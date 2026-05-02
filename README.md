@@ -2,6 +2,8 @@
 
 Zig implementation of the Recurram wire format and session-aware encoder/decoder.
 
+This repository tracks the Recurram v2 release line.
+
 ## What this package provides
 
 - Dynamic encoding/decoding (`encode`, `decode`)
