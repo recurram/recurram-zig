@@ -6,9 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- GitHub issue templates (feature request and bug report), pull request template, and PR message validation workflow.
+- `src/v2.zig` module; public `encode` and `decode` now route through the v2 codec path by default.
+
 ### Changed
 
 - Renamed the project from Recurram to Twilic. Historical changelog entries still refer to Recurram where applicable.
+
+### Fixed
+
+- Updated `build.zig.zon` package fingerprint after dependency changes.
 
 ## [2.0.0] - 2026-05-01
 
